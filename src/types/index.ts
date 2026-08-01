@@ -3,6 +3,18 @@ export type TabType = 'command-center' | 'chief-of-staff' | 'product-portfolio' 
 export type WorkspacePreset = 'execution' | 'meeting' | 'strategy' | 'custom';
 export type ViewMode = 'grid' | 'list';
 
+export interface ConnectedAccount {
+  id: string;
+  name: string;
+  email: string;
+  provider: 'Microsoft Outlook 365' | 'Gmail / Google Workspace' | 'Apple iCloud Mail' | 'Yahoo Mail' | 'ProtonMail' | 'IMAP / CalDAV Custom';
+  color: string;
+  unreadEmailsCount: number;
+  eventsTodayCount: number;
+  connected: boolean;
+  isDefault: boolean;
+}
+
 export interface SystemDiscoveredSkill {
   id: string;
   name: string;
@@ -112,6 +124,9 @@ export interface CalendarEvent {
   status: 'Confirmed' | 'Tentative' | 'Needs Prep';
   agenda?: string;
   prepNotes?: string;
+  accountEmail?: string;
+  accountName?: string;
+  provider?: string;
 }
 
 export interface EmailMessage {
@@ -125,6 +140,9 @@ export interface EmailMessage {
   category: 'Urgent' | 'Action Required' | 'VIP Sender' | 'Read Later';
   isRead: boolean;
   flagged: boolean;
+  accountEmail?: string;
+  accountName?: string;
+  provider?: string;
 }
 
 export interface NotionActionItem {
@@ -225,4 +243,5 @@ export interface AppSettings {
   customSkills: CustomSkill[];
   connectors?: ConnectorItem[];
   discoveredSystemSkills?: SystemDiscoveredSkill[];
+  connectedAccounts?: ConnectedAccount[];
 }

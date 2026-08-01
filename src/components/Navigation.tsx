@@ -36,7 +36,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'command-center', label: 'Command Center', icon: <LayoutGrid className="w-4 h-4 text-indigo-400" /> },
     { id: 'product-portfolio', label: 'Product Delivery Matrix', icon: <Rocket className="w-4 h-4 text-purple-400" /> },
     { id: 'chief-of-staff', label: 'Chief of Staff', icon: <Sparkles className="w-4 h-4 text-amber-400" /> },
-    { id: 'outlook', label: 'Outlook Inbox & Cal', icon: <Calendar className="w-4 h-4 text-cyan-400" /> },
+    { id: 'outlook', label: 'EMAIL & CAL', icon: <Calendar className="w-4 h-4 text-cyan-400" /> },
     { id: 'notion-krisp', label: 'Notion & Krisp', icon: <FileText className="w-4 h-4 text-emerald-400" /> },
     { id: 'app-launcher', label: 'App Launcher', icon: <Grid className="w-4 h-4 text-gold-400" /> },
     {
