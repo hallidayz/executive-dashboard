@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Navigation } from './components/Navigation';
 import { AppHeader } from './components/AppHeader';
 import { FloatingAIAdvisorPanel } from './components/FloatingAIAdvisorPanel';
@@ -58,15 +58,14 @@ export function App() {
   const [knowledgeEntries, setKnowledgeEntries] = useState<KnowledgeEntry[]>(storageService.getKnowledgeEntries());
   const [personaRules, setPersonaRules] = useState<LeadershipPersonaRule[]>(storageService.getPersonaRules());
   const [products, setProducts] = useState<ProductLine[]>(MOCK_PRODUCT_LINES);
+  /** Always-current settings for system-theme listener (avoids stale branding closure). */
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
+  // Apply theme + branding whenever personalization tokens change.
   useEffect(() => {
     applyThemePreference(settings.theme || 'system');
     applyBranding(settings);
-    if ((settings.theme || 'system') !== 'system') return;
-    return subscribeSystemTheme(() => {
-      applyThemePreference('system');
-      applyBranding(settings);
-    });
   }, [
     settings.theme,
     settings.brandPreset,
@@ -83,6 +82,15 @@ export function App() {
     settings.useBrandGradient,
     settings.fontPreset,
   ]);
+
+  // Subscribe to OS theme only while preference is "system"; always unsubscribe on cleanup.
+  useEffect(() => {
+    if ((settings.theme || 'system') !== 'system') return;
+    return subscribeSystemTheme(() => {
+      applyThemePreference('system');
+      applyBranding(settingsRef.current);
+    });
+  }, [settings.theme]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -134,6 +142,8 @@ export function App() {
       ...settings,
       sidebarNavOrder: navOrder,
       widgets: syncedWidgets,
+      // Diverging from a named workspace layout → mark preset custom.
+      activePreset: 'custom' as WorkspacePreset,
     };
     setSettings(updatedSettings);
     storageService.saveSettings(updatedSettings);
