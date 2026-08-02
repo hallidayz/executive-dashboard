@@ -17,7 +17,8 @@ interface WidgetWorkspaceProps {
   viewMode: ViewMode;
   onToggleViewMode: (mode: ViewMode) => void;
   onSelectPreset: (preset: WorkspacePreset) => void;
-  onOpenCustomizer: () => void;
+  /** Navigate to Settings → Workspace Layout */
+  onOpenLayoutSettings: () => void;
   products: ProductLine[];
   chiefSummary: ChiefOfStaffSummary;
   calendar: CalendarEvent[];
@@ -29,6 +30,7 @@ interface WidgetWorkspaceProps {
   kb: KnowledgeEntry[];
   personaRules: LeadershipPersonaRule[];
   userName: string;
+  workspaceName?: string;
   onNavigateTab: (tab: any) => void;
   onToggleEmailFlag: (id: string) => void;
   onMarkRead: (id: string) => void;
@@ -48,7 +50,7 @@ export const WidgetWorkspace: React.FC<WidgetWorkspaceProps> = ({
   viewMode,
   onToggleViewMode,
   onSelectPreset,
-  onOpenCustomizer,
+  onOpenLayoutSettings,
   products,
   chiefSummary,
   calendar,
@@ -60,6 +62,7 @@ export const WidgetWorkspace: React.FC<WidgetWorkspaceProps> = ({
   kb,
   personaRules,
   userName,
+  workspaceName = 'Command Center',
   onNavigateTab,
   onToggleEmailFlag,
   onMarkRead,
@@ -72,7 +75,9 @@ export const WidgetWorkspace: React.FC<WidgetWorkspaceProps> = ({
   onToggleAlertHandled,
   onAddKnowledgeEntry,
 }) => {
-  const enabledWidgets = widgets.filter((w) => w.enabled);
+  const enabledWidgets = [...widgets]
+    .sort((a, b) => a.order - b.order)
+    .filter((w) => w.enabled);
 
   return (
     <div className="space-y-6">
@@ -83,8 +88,8 @@ export const WidgetWorkspace: React.FC<WidgetWorkspaceProps> = ({
             <LayoutGrid className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="font-bold text-slate-100 text-base">Head of Product Command Center</h2>
-            <p className="text-xs text-slate-400">Pluggable executive dashboard layout • Configured for product execution leadership.</p>
+            <h2 className="font-bold text-slate-100 text-base">{workspaceName}</h2>
+            <p className="text-xs text-slate-400">Pluggable executive dashboard layout • Personalized for {userName}.</p>
           </div>
         </div>
 
@@ -106,11 +111,12 @@ export const WidgetWorkspace: React.FC<WidgetWorkspaceProps> = ({
           </div>
 
           <button
-            onClick={onOpenCustomizer}
-            className="p-2 rounded-xl bg-obsidian-800 hover:bg-slate-800 text-slate-300 border border-slate-700 transition-all shrink-0"
-            title="Customize Pluggable Widgets"
+            onClick={onOpenLayoutSettings}
+            className="px-3 py-2 rounded-xl bg-obsidian-800 hover:bg-slate-800 text-slate-300 border border-slate-700 transition-all shrink-0 flex items-center gap-1.5 text-xs font-semibold"
+            title="Open Workspace Layout in Settings & Config"
           >
             <Sliders className="w-4 h-4" />
+            <span className="hidden sm:inline">Layout settings</span>
           </button>
         </div>
       </div>

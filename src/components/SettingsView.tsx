@@ -36,38 +36,108 @@ import {
   Info,
   Save,
   X,
+  Download,
+  Upload,
+  Monitor,
+  Sun,
+  Moon,
+  Laptop,
+  User,
+  ImagePlus,
+  Palette,
+  Wand2,
 } from 'lucide-react';
-import { AppSettings, AIProviderConfig, CustomSkill, AutoConnectorSpec, ConnectorItem, SystemDiscoveredSkill } from '../types';
+import {
+  AppSettings,
+  AIProviderConfig,
+  CustomSkill,
+  AutoConnectorSpec,
+  ConnectorItem,
+  SystemDiscoveredSkill,
+  ThemePreference,
+  BrandIntensity,
+  BrandPresetId,
+  FontPresetId,
+  WidgetConfig,
+  WorkspacePreset,
+  SidebarNavId,
+} from '../types';
+import {
+  BRAND_PRESETS,
+  FONT_PRESETS,
+  applyBranding,
+  contrastOnAccent,
+  stopsFromPair,
+  suggestFontColorFromAccent,
+} from '../services/brandingService';
+import { applyThemePreference } from '../services/themeService';
+import { hsvaToHex, isCompleteHex, normalizeHex } from '../services/colorUtils';
 import { AutoConnectModal } from './AutoConnectModal';
 import { ConnectorSetupWizardModal } from './ConnectorSetupWizardModal';
 import { SkillEditorModal } from './SkillEditorModal';
 import { LocalFilePathBadge } from './LocalFilePathBadge';
+import { WorkspaceLayoutSettings } from './WorkspaceLayoutSettings';
+import { ColorHexRow } from './ColorPickerPopover';
 import { INITIAL_CONNECTORS_CATALOG } from '../services/connectorsCatalog';
-import { DISCOVERED_SYSTEM_SKILLS } from '../services/systemSkillsScanner';
-import { saveSkillToPersistentStorage, getPersistentSkills } from '../services/knowledgeBaseSync';
+import {
+  detectHostPlatform,
+  getDiscoveredSystemSkills,
+  getHomeDirectory,
+} from '../services/systemSkillsScanner';
+import { saveSkillToPersistentStorage } from '../services/knowledgeBaseSync';
+import { storageService } from '../services/storageService';
+
+type SettingsSubTab =
+  | 'general'
+  | 'workspace'
+  | 'skills'
+  | 'connectors'
+  | 'ai-models'
+  | 'claude-md'
+  | 'system';
 
 interface SettingsViewProps {
   settings: AppSettings;
   onSaveSettings: (settings: AppSettings) => void;
   onResetMockData: () => void;
+  onReloadWorkspace?: () => void;
+  onUpdateWidgets: (widgets: WidgetConfig[]) => void;
+  onReorderModules: (order: SidebarNavId[]) => void;
+  onSelectPreset: (preset: WorkspacePreset) => void;
+  /** Open a specific settings sub-tab (e.g. from Command Center customize). */
+  initialSubTab?: SettingsSubTab;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
   onSaveSettings,
   onResetMockData,
+  onReloadWorkspace,
+  onUpdateWidgets,
+  onReorderModules,
+  onSelectPreset,
+  initialSubTab,
 }) => {
-  const [subTab, setSubTab] = useState<'skills' | 'connectors' | 'ai-models' | 'claude-md' | 'system'>('skills');
+  const [subTab, setSubTab] = useState<SettingsSubTab>(initialSubTab || 'general');
+
+  useEffect(() => {
+    if (initialSubTab) setSubTab(initialSubTab);
+  }, [initialSubTab]);
   const [formData, setFormData] = useState<AppSettings>({ ...settings });
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showSyncInfoTooltip, setShowSyncInfoTooltip] = useState(false);
   const [kbSyncMessage, setKbSyncMessage] = useState<string | null>(null);
+  const [workspaceTransferMessage, setWorkspaceTransferMessage] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [showPaletteHelp, setShowPaletteHelp] = useState(false);
+  const hostPlatform = detectHostPlatform();
+  const homeDirectory = getHomeDirectory();
 
   // System Discovered Skills State
   const [systemSkills, setSystemSkills] = useState<SystemDiscoveredSkill[]>(
     settings.discoveredSystemSkills && settings.discoveredSystemSkills.length > 0
       ? settings.discoveredSystemSkills
-      : DISCOVERED_SYSTEM_SKILLS
+      : getDiscoveredSystemSkills()
   );
   const [selectedSystemSource, setSelectedSystemSource] = useState<string>('All Systems');
   const [isScanningSystem, setIsScanningSystem] = useState(false);
@@ -80,8 +150,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [connectorSearch, setConnectorSearch] = useState('');
   const [selectedConnectorForSetup, setSelectedConnectorForSetup] = useState<ConnectorItem | null>(null);
 
-  // TOP-LEVEL SKILLS VIEW MODE (TILES GRID VS COMPACT LIST)
-  const [skillsViewMode, setSkillsViewMode] = useState<'grid' | 'list'>('grid');
+  // Global settings density: tiles (grid) vs compact list — applies to all sub-tabs
+  const [settingsViewMode, setSettingsViewMode] = useState<'grid' | 'list'>('grid');
 
   // Unified Skill Editor Modal State
   const [showSkillEditor, setShowSkillEditor] = useState(false);
@@ -111,8 +181,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (e) e.preventDefault();
     const updated = { ...formData, connectors: connectorsList, discoveredSystemSkills: systemSkills };
     onSaveSettings(updated);
+    // Full personalization pack: theme mode + brand colors/buttons + fonts across the app.
+    applyThemePreference(updated.theme || 'system');
+    applyBranding(updated);
     setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 1200);
+    setTimeout(() => setSaveSuccess(false), 1600);
+  };
+
+  const handleSavePersonalization = () => {
+    handleSaveAll();
   };
 
   const handleSyncSkillsToKnowledgeBase = () => {
@@ -127,8 +204,57 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setIsScanningSystem(true);
     setTimeout(() => {
       setIsScanningSystem(false);
-      setSystemSkills(DISCOVERED_SYSTEM_SKILLS);
+      // Rebuild paths for the current OS / VITE_HOME_DIR (still mock discovery).
+      setSystemSkills(getDiscoveredSystemSkills());
     }, 700);
+  };
+
+  const handleExportWorkspace = () => {
+    const payload = storageService.exportWorkspace();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `exec-dash-workspace-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setWorkspaceTransferMessage('Workspace exported — copy this file to your other machine and Import.');
+    setTimeout(() => setWorkspaceTransferMessage(null), 3500);
+  };
+
+  const handleImportWorkspace = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        const ok = storageService.importWorkspace(parsed);
+        if (!ok) {
+          setWorkspaceTransferMessage('Import failed — file is not a valid workspace export.');
+          setTimeout(() => setWorkspaceTransferMessage(null), 3500);
+          return;
+        }
+        onReloadWorkspace?.();
+        const next = storageService.getSettings();
+        setFormData({ ...next });
+        setSystemSkills(
+          next.discoveredSystemSkills && next.discoveredSystemSkills.length > 0
+            ? next.discoveredSystemSkills
+            : getDiscoveredSystemSkills()
+        );
+        setConnectorsList(
+          next.connectors && next.connectors.length > 0
+            ? next.connectors
+            : INITIAL_CONNECTORS_CATALOG
+        );
+        setWorkspaceTransferMessage('Workspace imported. Settings and mock data reloaded from file.');
+        setTimeout(() => setWorkspaceTransferMessage(null), 3500);
+      } catch {
+        setWorkspaceTransferMessage('Import failed — could not parse JSON.');
+        setTimeout(() => setWorkspaceTransferMessage(null), 3500);
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleSaveConnector = (updatedConnector: ConnectorItem) => {
@@ -241,6 +367,163 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const ecosystemsList = ['All', 'Microsoft', 'Claude', 'ChatGPT', 'Google', 'n8n', 'Enterprise SaaS', 'Developer & Data'];
   const systemSourcesList = ['All Systems', 'Antigravity', 'Claude', 'Gemini', 'Cursor', 'ChatGPT', 'Perplexity', 'Google AI Studio'];
 
+  const persistPartial = (patch: Partial<AppSettings>) => {
+    const updated = { ...formData, ...patch };
+    setFormData(updated);
+    onSaveSettings({ ...updated, connectors: connectorsList, discoveredSystemSkills: systemSkills });
+    applyBranding(updated);
+  };
+
+  const applyThemeChoice = (theme: ThemePreference) => {
+    persistPartial({ theme });
+  };
+
+  const applyBrandPreset = (presetId: BrandPresetId) => {
+    const preset = BRAND_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
+    persistPartial({
+      brandPreset: preset.id,
+      accentColor: preset.accent,
+      accentSecondary: preset.secondary,
+      primaryContrastColor: preset.primaryContrast || contrastOnAccent(preset.accent),
+      primaryFontColor: preset.font,
+      primaryFontLinked: true,
+      secondaryContrastColor: preset.secondaryContrast || contrastOnAccent(preset.secondary),
+      secondaryFontColor: preset.secondaryFont,
+      secondaryFontLinked: true,
+      brandGradientStops: stopsFromPair(preset.accent, preset.secondary),
+    });
+  };
+
+  type BrandColorField =
+    | 'accentColor'
+    | 'accentSecondary'
+    | 'primaryFontColor'
+    | 'secondaryFontColor'
+    | 'primaryContrastColor'
+    | 'secondaryContrastColor';
+
+  const applyBrandColor = (field: BrandColorField, raw: string) => {
+    if (!isCompleteHex(raw)) {
+      setFormData((prev) => ({ ...prev, [field]: raw }));
+      return;
+    }
+    const fallback =
+      field === 'accentSecondary'
+        ? '#9333EA'
+        : field === 'primaryFontColor'
+          ? '#818CF8'
+          : field === 'secondaryFontColor'
+            ? '#C084FC'
+            : field === 'primaryContrastColor' || field === 'secondaryContrastColor'
+              ? '#FFFFFF'
+              : '#6366F1';
+    const hex = normalizeHex(raw, fallback);
+    const accent = field === 'accentColor' ? hex : formData.accentColor || '#6366F1';
+    const secondary = field === 'accentSecondary' ? hex : formData.accentSecondary || '#9333EA';
+    const patch: Partial<AppSettings> = {
+      brandPreset: 'custom',
+      [field]: hex,
+      brandGradientStops: stopsFromPair(accent, secondary),
+    };
+
+    // Contrast always complements the fill; font only when still linked.
+    if (field === 'accentColor') {
+      patch.primaryContrastColor = contrastOnAccent(hex);
+      if (formData.primaryFontLinked !== false) {
+        patch.primaryFontColor = suggestFontColorFromAccent(hex);
+        patch.primaryFontLinked = true;
+      }
+    }
+    if (field === 'accentSecondary') {
+      patch.secondaryContrastColor = contrastOnAccent(hex);
+      if (formData.secondaryFontLinked !== false) {
+        patch.secondaryFontColor = suggestFontColorFromAccent(hex);
+        patch.secondaryFontLinked = true;
+      }
+    }
+    if (field === 'primaryFontColor') {
+      patch.primaryFontLinked = false;
+    }
+    if (field === 'secondaryFontColor') {
+      patch.secondaryFontLinked = false;
+    }
+    persistPartial(patch);
+  };
+
+  const relinkPrimaryFont = (mode: 'tint' | 'contrast') => {
+    const accent = formData.accentColor || '#6366F1';
+    persistPartial({
+      brandPreset: 'custom',
+      primaryFontLinked: true,
+      primaryFontColor:
+        mode === 'contrast'
+          ? formData.primaryContrastColor || contrastOnAccent(accent)
+          : suggestFontColorFromAccent(accent),
+    });
+  };
+
+  const relinkSecondaryFont = (mode: 'tint' | 'contrast') => {
+    const secondary = formData.accentSecondary || '#9333EA';
+    persistPartial({
+      brandPreset: 'custom',
+      secondaryFontLinked: true,
+      secondaryFontColor:
+        mode === 'contrast'
+          ? formData.secondaryContrastColor || contrastOnAccent(secondary)
+          : suggestFontColorFromAccent(secondary),
+    });
+  };
+
+  /** Random harmonious custom palette (primary + secondary fills, contrasts, fonts). */
+  const generateCustomPalette = () => {
+    const hue = Math.floor(Math.random() * 360);
+    const accent = hsvaToHex({ h: hue, s: 62 + Math.random() * 28, v: 72 + Math.random() * 18, a: 100 });
+    const secondary = hsvaToHex({
+      h: (hue + 28 + Math.floor(Math.random() * 40)) % 360,
+      s: 55 + Math.random() * 30,
+      v: 68 + Math.random() * 22,
+      a: 100,
+    });
+    persistPartial({
+      brandPreset: 'custom',
+      accentColor: accent,
+      accentSecondary: secondary,
+      primaryContrastColor: contrastOnAccent(accent),
+      primaryFontColor: suggestFontColorFromAccent(accent),
+      primaryFontLinked: true,
+      secondaryContrastColor: contrastOnAccent(secondary),
+      secondaryFontColor: suggestFontColorFromAccent(secondary),
+      secondaryFontLinked: true,
+      brandGradientStops: stopsFromPair(accent, secondary),
+      useBrandGradient: true,
+    });
+  };
+
+  const themeOptions: { id: ThemePreference; label: string; icon: React.ReactNode; hint: string }[] = [
+    { id: 'light', label: 'Light', icon: <Sun className="w-4 h-4" />, hint: 'Bright surfaces' },
+    { id: 'dark', label: 'Dark', icon: <Moon className="w-4 h-4" />, hint: 'Obsidian UI' },
+    { id: 'system', label: 'System', icon: <Laptop className="w-4 h-4" />, hint: 'Match OS' },
+  ];
+
+  const readImageAsDataUrl = (file: File | null, field: 'logoDataUrl' | 'markDataUrl') => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setLogoError('Please choose an image file (PNG, SVG, JPEG, or WebP).');
+      return;
+    }
+    if (file.size > 600_000) {
+      setLogoError('Keep logos under ~600KB so settings stay fast in localStorage.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLogoError(null);
+      setFormData((prev) => ({ ...prev, [field]: String(reader.result || '') }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -250,8 +533,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <Settings className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-100">Robust Settings & AI Architecture Hub</h2>
-            <p className="text-xs text-slate-400">Persistent Knowledge Base skill storage & System Plugin Scanner across all AI tools.</p>
+            <h2 className="text-xl font-bold text-slate-100">Settings & Config</h2>
+            <p className="text-xs text-slate-400">
+              Personalization, Command Center layout, skills, connectors, and system preferences — all in one place.
+            </p>
           </div>
         </div>
 
@@ -280,15 +565,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
-      {/* Sub-Tab Navigation Bar */}
-      <div className="flex items-center justify-between bg-obsidian-900/90 p-1.5 rounded-2xl border border-slate-800">
-        <div className="flex items-center gap-1.5 overflow-x-auto">
+      {/* Sub-Tab Navigation Bar + global Tiles/List toggle */}
+      <div className="flex items-center justify-between gap-2 bg-obsidian-900/90 p-1.5 rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-1.5 overflow-x-auto min-w-0 flex-1">
           {[
-            { id: 'skills', label: '⚡ Skills & System Plugins Hub', icon: <Zap className="w-4 h-4" /> },
-            { id: 'connectors', label: '🔌 Connectors', icon: <Share2 className="w-4 h-4" /> },
-            { id: 'ai-models', label: '🤖 AI Models & Local Machine', icon: <Cpu className="w-4 h-4" /> },
-            { id: 'claude-md', label: '📜 CLAUDE.md & Instructions', icon: <FileCode className="w-4 h-4" /> },
-            { id: 'system', label: '⚙️ System & Auto-Start', icon: <Power className="w-4 h-4" /> },
+            { id: 'general', label: 'Personalization', icon: <Palette className="w-4 h-4" /> },
+            { id: 'workspace', label: 'Workspace Layout', icon: <Sliders className="w-4 h-4" /> },
+            { id: 'skills', label: 'Skills & Plugins', icon: <Zap className="w-4 h-4" /> },
+            { id: 'connectors', label: 'Connectors', icon: <Share2 className="w-4 h-4" /> },
+            { id: 'ai-models', label: 'AI Models', icon: <Cpu className="w-4 h-4" /> },
+            { id: 'claude-md', label: 'CLAUDE.md', icon: <FileCode className="w-4 h-4" /> },
+            { id: 'system', label: 'System', icon: <Power className="w-4 h-4" /> },
           ].map((item) => (
             <button
               key={item.id}
@@ -305,38 +592,834 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           ))}
         </div>
 
-        {/* TOP-LEVEL TILES GRID VS COMPACT LIST VIEW TOGGLE FOR SKILLS TAB */}
-        {subTab === 'skills' && (
-          <div className="flex items-center gap-1 bg-obsidian-950 p-1 rounded-xl border border-slate-800 shrink-0">
-            <button
-              onClick={() => setSkillsViewMode('grid')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                skillsViewMode === 'grid'
-                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Global Tile Grid View"
-            >
-              <Grid className="w-3.5 h-3.5" />
-              <span>Tiles</span>
-            </button>
-            <button
-              onClick={() => setSkillsViewMode('list')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                skillsViewMode === 'list'
-                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Global Compact List View"
-            >
-              <List className="w-3.5 h-3.5" />
-              <span>List</span>
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-1 bg-obsidian-950 p-1 rounded-xl border border-slate-800 shrink-0">
+          <button
+            type="button"
+            onClick={() => setSettingsViewMode('grid')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+              settingsViewMode === 'grid'
+                ? 'brand-gradient shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Tile / grid view for all settings sections"
+          >
+            <Grid className="w-3.5 h-3.5" />
+            <span>Tiles</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSettingsViewMode('list')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+              settingsViewMode === 'list'
+                ? 'brand-gradient shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Compact list view for all settings sections"
+          >
+            <List className="w-3.5 h-3.5" />
+            <span>List</span>
+          </button>
+        </div>
       </div>
 
-      {/* SUB-TAB 3: SKILLS & SYSTEM PLUGINS HUB */}
+      {/* PERSONALIZATION: branding, CoS name, logos, theme, profile + keys */}
+      {subTab === 'general' && (
+        <div className="space-y-4">
+          <div className="glass-panel p-5 rounded-2xl border border-indigo-500/30 space-y-4">
+            <div className="border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-indigo-400" />
+                Branding & Chief of Staff
+              </h3>
+              <p className="text-xs text-slate-400">
+                Name your workspace and floating AI. Capabilities (skills, connectors, models) stay on the other tabs.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-400">Workspace name</label>
+                <input
+                  type="text"
+                  value={formData.workspaceName || ''}
+                  onChange={(e) => setFormData({ ...formData, workspaceName: e.target.value })}
+                  placeholder="Command Center"
+                  className="w-full px-3 py-2 rounded-xl glass-input text-xs"
+                />
+                <p className="text-[10px] text-slate-500">Shown in the top header and sidebar (replaces “Head of Product…”).</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-400">Chief of Staff AI name</label>
+                <input
+                  type="text"
+                  value={formData.chiefOfStaffName || ''}
+                  onChange={(e) => setFormData({ ...formData, chiefOfStaffName: e.target.value })}
+                  placeholder="Atlas"
+                  className="w-full px-3 py-2 rounded-xl glass-input text-xs"
+                />
+                <p className="text-[10px] text-slate-500">Used by the floating panel and the minimized header chip.</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-400">Tagline / badge</label>
+                <input
+                  type="text"
+                  value={formData.tagline || ''}
+                  onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
+                  placeholder="Execution Co-Pilot"
+                  className="w-full px-3 py-2 rounded-xl glass-input text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-400">Personal touch</label>
+                <input
+                  type="text"
+                  value={formData.personalTouch || ''}
+                  onChange={(e) => setFormData({ ...formData, personalTouch: e.target.value })}
+                  placeholder="e.g. Built for quiet focus mornings"
+                  className="w-full px-3 py-2 rounded-xl glass-input text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="space-y-2 p-3 rounded-xl border border-slate-800 glass-card">
+                <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                  <ImagePlus className="w-3.5 h-3.5" />
+                  Primary logo
+                </span>
+                <p className="text-[10px] text-slate-500">Header wordmark. PNG / SVG / JPEG under ~600KB.</p>
+                {formData.logoDataUrl ? (
+                  <img src={formData.logoDataUrl} alt="Logo preview" className="h-10 w-auto max-w-full object-contain rounded" />
+                ) : (
+                  <div className="h-10 rounded-lg border border-dashed border-slate-700 flex items-center justify-center text-[10px] text-slate-500">
+                    No logo yet
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <label className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold cursor-pointer">
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        readImageAsDataUrl(e.target.files?.[0] ?? null, 'logoDataUrl');
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  {formData.logoDataUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, logoDataUrl: '' })}
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-[11px] font-semibold"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2 p-3 rounded-xl border border-slate-800 glass-card">
+                <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                  <ImagePlus className="w-3.5 h-3.5" />
+                  Mark / AI avatar
+                </span>
+                <p className="text-[10px] text-slate-500">Compact icon for sidebar and the CoS chip.</p>
+                {formData.markDataUrl ? (
+                  <img src={formData.markDataUrl} alt="Mark preview" className="h-10 w-10 object-cover rounded-lg" />
+                ) : (
+                  <div className="h-10 w-10 rounded-lg border border-dashed border-slate-700 flex items-center justify-center text-[10px] text-slate-500">
+                    —
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <label className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-semibold cursor-pointer">
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        readImageAsDataUrl(e.target.files?.[0] ?? null, 'markDataUrl');
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  {formData.markDataUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, markDataUrl: '' })}
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-[11px] font-semibold"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+            {logoError && <p className="text-[11px] text-rose-400 font-medium">{logoError}</p>}
+          </div>
+
+          {/* Appearance: light / dark / system */}
+          <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+            <div className="border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
+                <Sun className="w-4 h-4 text-amber-400" />
+                Appearance
+                <span className="text-[10px] font-bold uppercase tracking-wider brand-text">60% dominant</span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Canvas and neutrals (backgrounds, cards, body text). This is your 60% dominant layer —
+                light, dark, or match the OS.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {themeOptions.map((opt) => {
+                const selected = (formData.theme || 'system') === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => applyThemeChoice(opt.id)}
+                    className={`p-4 rounded-xl border text-left transition-all ${
+                      selected
+                        ? 'brand-border brand-bg-soft brand-ring'
+                        : 'border-slate-800 glass-card hover:border-[var(--brand-accent-border)]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={selected ? 'brand-text' : 'text-slate-400'}>{opt.icon}</span>
+                      <span className="text-sm font-bold text-slate-100">{opt.label}</span>
+                      {selected && <Check className="w-3.5 h-3.5 brand-text ml-auto" />}
+                    </div>
+                    <p className="text-[11px] text-slate-400">{opt.hint}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Color & brand chrome */}
+          <div className="glass-panel p-5 sm:p-6 rounded-2xl border border-slate-800 space-y-5">
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
+                    <Palette className="w-4 h-4 brand-text" />
+                    Color & brand chrome
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowPaletteHelp((open) => !open)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-all ${
+                      showPaletteHelp
+                        ? 'brand-border brand-bg-soft brand-text'
+                        : 'border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
+                    }`}
+                    aria-expanded={showPaletteHelp}
+                    aria-controls="palette-help-panel"
+                    title="Palette guidance: 60-30-10 rule"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>Help</span>
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400 mt-1 max-w-2xl">
+                  Choose a preset or edit hex values. Click a color swatch to open the precision color picker.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                <button
+                  type="button"
+                  onClick={generateCustomPalette}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold shadow-sm transition-all brand-ring hover:opacity-95"
+                  style={{
+                    backgroundImage: `linear-gradient(90deg, ${formData.accentColor || '#6366F1'}, ${formData.accentSecondary || '#9333EA'})`,
+                    color: formData.primaryContrastColor || '#FFFFFF',
+                    borderColor: 'var(--brand-accent-border)',
+                  }}
+                  title="Generate a random custom primary + secondary palette"
+                >
+                  <Wand2
+                    className="w-3.5 h-3.5 shrink-0"
+                    style={{ color: formData.primaryContrastColor || '#FFFFFF' }}
+                  />
+                  <span>Generate my own custom palette</span>
+                  <span
+                    className="ml-0.5 h-2.5 w-2.5 rounded-full border shrink-0"
+                    style={{
+                      backgroundColor: formData.primaryFontColor || '#818CF8',
+                      borderColor: formData.primaryContrastColor || '#FFFFFF',
+                    }}
+                    title="Primary font"
+                  />
+                  <span
+                    className="h-2.5 w-2.5 rounded-full border shrink-0"
+                    style={{
+                      backgroundColor: formData.secondaryFontColor || '#C084FC',
+                      borderColor: formData.secondaryContrastColor || '#FFFFFF',
+                    }}
+                    title="Secondary font"
+                  />
+                </button>
+                <span className="px-3 py-1.5 rounded-lg brand-badge text-xs font-bold">Primary</span>
+                <span className="px-3 py-1.5 rounded-lg brand-badge-secondary text-xs font-bold">
+                  Secondary
+                </span>
+                <span className="px-3 py-1.5 rounded-lg brand-gradient text-xs font-bold shadow-md">
+                  CTA
+                </span>
+              </div>
+            </div>
+
+            {showPaletteHelp && (
+              <div
+                id="palette-help-panel"
+                className="rounded-2xl border brand-border brand-bg-soft p-4 sm:p-5 space-y-4"
+                role="region"
+                aria-label="App color palette guidance"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-100">How to build a great app palette</h4>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      A strong palette follows the <span className="text-slate-200 font-semibold">60-30-10 rule</span>
+                      {' '}(60% dominant background, 30% secondary surfaces/cards, and 10% accent highlights or
+                      call-to-actions), combined with <span className="text-slate-200 font-semibold">2 to 3 core colors</span>
+                      {' '}plus neutrals.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPaletteHelp(false)}
+                    className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-800/60 shrink-0"
+                    aria-label="Close palette help"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+                    Core structure of an app palette
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {[
+                      {
+                        share: '60%',
+                        title: 'Dominant (Appearance)',
+                        body: 'Light / Dark / System above sets canvas neutrals — backgrounds, cards, and body text.',
+                      },
+                      {
+                        share: '30%',
+                        title: 'Secondary (+ font & contrast)',
+                        body: 'Supporting fill color, contrast text on that fill, and secondary font tint on neutrals.',
+                      },
+                      {
+                        share: '10%',
+                        title: 'Primary (+ font & contrast)',
+                        body: 'CTA / active-nav fill, contrast on that fill, and primary font tint on neutrals.',
+                      },
+                      {
+                        share: '—',
+                        title: 'Contrast vs Font',
+                        body: 'Contrast = text on the colored fill. Font = accent-tinted text on neutrals. They can match or diverge.',
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.title}
+                        className="rounded-xl border border-slate-700/70 bg-slate-950/40 p-3 space-y-1"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold brand-text tabular-nums">{item.share}</span>
+                          <span className="text-xs font-bold text-slate-100">{item.title}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">{item.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  <span className="text-slate-300 font-semibold">Appearance</span> = 60% dominant neutrals.{' '}
+                  <span className="text-slate-300 font-semibold">Secondary</span> = 30% supporting fills + font on
+                  neutrals. <span className="text-slate-300 font-semibold">Primary</span> = 10% CTAs. For each role,
+                  Contrast is text <em>on</em> the fill; Font is tinted text <em>on</em> neutrals (can match contrast
+                  or diverge).
+                </p>
+              </div>
+            )}
+
+            <div>
+              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Palette presets
+              </label>
+              <div
+                className={
+                  settingsViewMode === 'grid'
+                    ? 'mt-2 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2'
+                    : 'mt-2 space-y-2'
+                }
+              >
+                {BRAND_PRESETS.map((preset) => {
+                  const selected = (formData.brandPreset || 'indigo') === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyBrandPreset(preset.id)}
+                      className={`${
+                        settingsViewMode === 'list'
+                          ? 'p-3 flex items-center gap-3 w-full'
+                          : 'p-3'
+                      } rounded-xl border text-left transition-all ${
+                        selected ? 'brand-border brand-bg-soft brand-ring' : 'border-slate-800 glass-card'
+                      }`}
+                    >
+                      <div
+                        className={
+                          settingsViewMode === 'list'
+                            ? 'h-2.5 w-16 rounded-full shrink-0'
+                            : 'h-2.5 w-full rounded-full mb-2'
+                        }
+                        style={{
+                          background: `linear-gradient(90deg, ${preset.accent}, ${preset.secondary})`,
+                        }}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-100">{preset.label}</p>
+                        <p className="text-[10px] text-slate-500 leading-snug">{preset.description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* 10% Primary */}
+              <div className="rounded-xl border border-slate-800 bg-slate-950/30 overflow-hidden">
+                <div className="px-3 sm:px-4 py-2.5 border-b border-slate-800 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-bold text-slate-100">Primary · 10% accent</p>
+                    <p className="text-[10px] text-slate-500">CTAs, active nav, critical highlights</p>
+                  </div>
+                  <span className="text-[10px] font-bold brand-text uppercase tracking-wider">10%</span>
+                </div>
+                <div className="px-3 sm:px-4">
+                  <ColorHexRow
+                    label="Color"
+                    value={formData.accentColor || '#6366F1'}
+                    fallback="#6366F1"
+                    onChange={(hex) => applyBrandColor('accentColor', hex)}
+                  />
+                  <ColorHexRow
+                    label="Contrast"
+                    value={
+                      formData.primaryContrastColor ||
+                      contrastOnAccent(formData.accentColor || '#6366F1')
+                    }
+                    fallback="#FFFFFF"
+                    onChange={(hex) => applyBrandColor('primaryContrastColor', hex)}
+                  />
+                  <ColorHexRow
+                    label="Font"
+                    value={
+                      formData.primaryFontColor ||
+                      suggestFontColorFromAccent(formData.accentColor || '#6366F1')
+                    }
+                    fallback="#818CF8"
+                    onChange={(hex) => applyBrandColor('primaryFontColor', hex)}
+                  />
+                </div>
+                <div className="px-3 sm:px-4 pb-3 flex flex-wrap gap-2 items-center">
+                  <span className="text-[10px] text-slate-500">
+                    Font {formData.primaryFontLinked !== false ? 'linked' : 'custom'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => relinkPrimaryFont('tint')}
+                    className="text-[10px] font-bold brand-text hover:underline"
+                  >
+                    Sync tint from color
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => relinkPrimaryFont('contrast')}
+                    className="text-[10px] font-bold brand-text hover:underline"
+                  >
+                    Match contrast
+                  </button>
+                </div>
+              </div>
+
+              {/* 30% Secondary */}
+              <div className="rounded-xl border border-slate-800 bg-slate-950/30 overflow-hidden">
+                <div className="px-3 sm:px-4 py-2.5 border-b border-slate-800 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-bold text-slate-100">Secondary · 30% support</p>
+                    <p className="text-[10px] text-slate-500">Supporting fills, gradient end, soft chips</p>
+                  </div>
+                  <span className="text-[10px] font-bold brand-text-secondary uppercase tracking-wider">30%</span>
+                </div>
+                <div className="px-3 sm:px-4">
+                  <ColorHexRow
+                    label="Color"
+                    value={formData.accentSecondary || '#9333EA'}
+                    fallback="#9333EA"
+                    onChange={(hex) => applyBrandColor('accentSecondary', hex)}
+                  />
+                  <ColorHexRow
+                    label="Contrast"
+                    value={
+                      formData.secondaryContrastColor ||
+                      contrastOnAccent(formData.accentSecondary || '#9333EA')
+                    }
+                    fallback="#FFFFFF"
+                    onChange={(hex) => applyBrandColor('secondaryContrastColor', hex)}
+                  />
+                  <ColorHexRow
+                    label="Font"
+                    value={
+                      formData.secondaryFontColor ||
+                      suggestFontColorFromAccent(formData.accentSecondary || '#9333EA')
+                    }
+                    fallback="#C084FC"
+                    onChange={(hex) => applyBrandColor('secondaryFontColor', hex)}
+                  />
+                </div>
+                <div className="px-3 sm:px-4 pb-3 flex flex-wrap gap-2 items-center">
+                  <span className="text-[10px] text-slate-500">
+                    Font {formData.secondaryFontLinked !== false ? 'linked' : 'custom'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => relinkSecondaryFont('tint')}
+                    className="text-[10px] font-bold brand-text-secondary hover:underline"
+                  >
+                    Sync tint from color
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => relinkSecondaryFont('contrast')}
+                    className="text-[10px] font-bold brand-text-secondary hover:underline"
+                  >
+                    Match contrast
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Live mock chrome — updates immediately with saved settings */}
+            <div className="rounded-xl border border-slate-800 p-4 space-y-3 bg-slate-950/40">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Live preview (mock UI)
+                </p>
+                <span className="text-[10px] text-slate-500">
+                  Changes apply across the app instantly
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="rounded-lg brand-button p-2.5 text-center">
+                  <p className="text-[9px] font-bold uppercase opacity-80">Primary fill</p>
+                  <p className="text-[11px] font-bold mt-0.5">Contrast</p>
+                </div>
+                <div className="rounded-lg brand-secondary-fill p-2.5 text-center">
+                  <p className="text-[9px] font-bold uppercase opacity-80">Secondary fill</p>
+                  <p className="text-[11px] font-bold mt-0.5">Contrast</p>
+                </div>
+                <div className="rounded-lg border border-slate-700 bg-[var(--glass-card)] p-2.5 text-center">
+                  <p className="text-[9px] font-bold uppercase text-slate-500">On neutrals</p>
+                  <p className="text-[11px] font-bold brand-text mt-0.5">Primary font</p>
+                </div>
+                <div className="rounded-lg border border-slate-700 bg-[var(--glass-card)] p-2.5 text-center">
+                  <p className="text-[9px] font-bold uppercase text-slate-500">On neutrals</p>
+                  <p className="text-[11px] font-bold brand-text-secondary mt-0.5">Secondary font</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-800 overflow-hidden">
+                <div className="flex items-center justify-between gap-3 px-3 py-2.5 border-b border-slate-800 bg-[var(--header-bg)]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-7 w-7 rounded-lg brand-gradient flex items-center justify-center text-[10px] font-bold shrink-0">
+                      {(formData.workspaceName || 'CC').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-100 truncate">
+                        {formData.workspaceName || 'Command Center'}
+                      </p>
+                      <p className="text-[10px] truncate">
+                        <span className="brand-text">{formData.userTitle || 'Head of Product'}</span>
+                        <span className="text-slate-500"> · </span>
+                        <span className="brand-text-secondary">secondary label</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="px-2 py-1 rounded-lg brand-badge text-[10px] font-bold">Primary</span>
+                    <span className="px-2 py-1 rounded-lg brand-badge-secondary text-[10px] font-bold">
+                      Secondary
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-[140px_1fr] min-h-[120px]">
+                  <aside className="border-r border-slate-800 p-2 space-y-1 bg-[var(--sidebar-bg)]">
+                    <div className="px-2 py-1.5 rounded-lg brand-gradient text-[10px] font-bold">
+                      Active nav
+                    </div>
+                    <div className="px-2 py-1.5 rounded-lg brand-bg-secondary-soft brand-border-secondary border text-[10px] brand-text-secondary font-semibold">
+                      Secondary chip
+                    </div>
+                    <div className="px-2 py-1.5 rounded-lg text-[10px] text-slate-400">Idle (60%)</div>
+                  </aside>
+                  <div className="p-3 space-y-2.5">
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className="px-3 py-1.5 rounded-lg brand-button text-[10px] font-bold">
+                        Primary CTA
+                      </button>
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-lg brand-secondary-fill text-[10px] font-bold"
+                      >
+                        Secondary CTA
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      <span className="brand-text font-semibold">Primary font</span>
+                      {' · '}
+                      <span className="brand-text-secondary font-semibold">Secondary font</span>
+                      {' · '}
+                      <span className="text-indigo-400 font-semibold">indigo remap</span>
+                      {' · '}
+                      <span className="text-purple-400 font-semibold">purple remap</span>
+                    </p>
+                    <div className="h-8 rounded-lg brand-gradient brand-ring" title="Gradient surface" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[11px] font-semibold text-slate-400">Brand intensity</label>
+                <div className="flex gap-1.5">
+                  {([
+                    { id: 'soft', label: 'Soft' },
+                    { id: 'balanced', label: 'Balanced' },
+                    { id: 'bold', label: 'Bold' },
+                  ] as { id: BrandIntensity; label: string }[]).map((opt) => {
+                    const selected = (formData.brandIntensity || 'balanced') === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => persistPartial({ brandIntensity: opt.id })}
+                        className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                          selected ? 'brand-gradient shadow-md' : 'bg-slate-800/60 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[11px] font-semibold text-slate-400">Gradient accents</label>
+                <button
+                  type="button"
+                  onClick={() => persistPartial({ useBrandGradient: !formData.useBrandGradient })}
+                  className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-between ${
+                    formData.useBrandGradient !== false
+                      ? 'brand-border brand-bg-soft brand-text'
+                      : 'border-slate-700 text-slate-400'
+                  }`}
+                >
+                  <span>{formData.useBrandGradient !== false ? 'Two-tone gradient ON' : 'Solid accent (gradient OFF)'}</span>
+                  <Check className={`w-3.5 h-3.5 ${formData.useBrandGradient !== false ? 'opacity-100' : 'opacity-0'}`} />
+                </button>
+                <p className="text-[10px] text-slate-500">Applies to active nav items and primary brand surfaces.</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-1 border-t border-slate-800">
+              <label className="text-[11px] font-semibold text-slate-400">Typography</label>
+              <p className="text-[10px] text-slate-500">
+                Font pack is applied to body text, buttons, inputs, and headings when you save personalization.
+              </p>
+              <div
+                className={
+                  settingsViewMode === 'grid'
+                    ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2'
+                    : 'space-y-2'
+                }
+              >
+                {FONT_PRESETS.map((pack) => {
+                  const selected = (formData.fontPreset || 'inter-outfit') === pack.id;
+                  return (
+                    <button
+                      key={pack.id}
+                      type="button"
+                      onClick={() => persistPartial({ fontPreset: pack.id as FontPresetId })}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        settingsViewMode === 'list' ? 'flex items-center justify-between gap-3 w-full' : ''
+                      } ${
+                        selected ? 'brand-border brand-bg-soft brand-ring' : 'border-slate-800 glass-card'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p
+                          className="text-sm font-bold text-slate-100 mb-0.5"
+                          style={{ fontFamily: pack.display }}
+                        >
+                          {pack.label}
+                        </p>
+                        <p className="text-[10px] text-slate-500" style={{ fontFamily: pack.body }}>
+                          {pack.description}
+                        </p>
+                      </div>
+                      {selected && settingsViewMode === 'list' && (
+                        <Check className="w-4 h-4 brand-text shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+            <div className="border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
+                <User className="w-4 h-4 text-indigo-400" />
+                Profile
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-400">Full name</label>
+                <input
+                  type="text"
+                  value={formData.userName}
+                  onChange={(e) => setFormData({ ...formData, userName: e.target.value })}
+                  placeholder="Your Full Name..."
+                  className="w-full px-3 py-2 rounded-xl glass-input text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-400">Title</label>
+                <input
+                  type="text"
+                  value={formData.userTitle}
+                  onChange={(e) => setFormData({ ...formData, userTitle: e.target.value })}
+                  placeholder="Your Leadership Title..."
+                  className="w-full px-3 py-2 rounded-xl glass-input text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+            <div className="border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
+                <Key className="w-4 h-4 text-cyan-400" />
+                Integration keys
+              </h3>
+              <p className="text-xs text-slate-400">Capabilities stay the same — these keys are stored locally until wired live.</p>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-cyan-400">Microsoft Graph / Outlook</span>
+              <input
+                type="text"
+                value={formData.outlookClientId}
+                onChange={(e) => setFormData({ ...formData, outlookClientId: e.target.value })}
+                placeholder="Azure AD Client Application ID..."
+                className="w-full px-3 py-2 rounded-xl glass-input text-xs"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-emerald-400">Notion</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={formData.notionApiKey}
+                  onChange={(e) => setFormData({ ...formData, notionApiKey: e.target.value })}
+                  placeholder="Notion Secret API Key (secret_...)"
+                  className="w-full px-3 py-2 rounded-xl glass-input text-xs"
+                />
+                <input
+                  type="text"
+                  value={formData.notionDatabaseId}
+                  onChange={(e) => setFormData({ ...formData, notionDatabaseId: e.target.value })}
+                  placeholder="Action Database ID..."
+                  className="w-full px-3 py-2 rounded-xl glass-input text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-purple-400">Local / Custom LLM</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={formData.customLlmEndpoint}
+                  onChange={(e) => setFormData({ ...formData, customLlmEndpoint: e.target.value })}
+                  placeholder="API Endpoint (e.g. http://localhost:11434)"
+                  className="w-full px-3 py-2 rounded-xl glass-input text-xs"
+                />
+                <input
+                  type="password"
+                  value={formData.customLlmApiKey}
+                  onChange={(e) => setFormData({ ...formData, customLlmApiKey: e.target.value })}
+                  placeholder="API Key (Optional for Ollama / Local)"
+                  className="w-full px-3 py-2 rounded-xl glass-input text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-800">
+              <p className="text-[11px] text-slate-500">
+                Save applies brand colors to buttons & accents, loads the selected fonts, and persists the theme.
+              </p>
+              <button
+                type="button"
+                onClick={handleSavePersonalization}
+                className="px-5 py-2.5 rounded-xl brand-button font-bold text-xs shadow-md brand-ring shrink-0"
+              >
+                {saveSuccess ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" />
+                    Colors, buttons & fonts applied
+                  </span>
+                ) : (
+                  'Save personalization'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WORKSPACE LAYOUT: Command Center panels + left nav (single module order) */}
+      {subTab === 'workspace' && (
+        <WorkspaceLayoutSettings
+          widgets={settings.widgets}
+          activePreset={settings.activePreset}
+          sidebarNavOrder={settings.sidebarNavOrder || []}
+          settings={settings}
+          viewMode={settingsViewMode}
+          onUpdateWidgets={onUpdateWidgets}
+          onReorderModules={onReorderModules}
+          onSelectPreset={onSelectPreset}
+        />
+      )}
+
+      {/* SUB-TAB: SKILLS & SYSTEM PLUGINS HUB */}
       {subTab === 'skills' && (
         <div className="space-y-6">
           {/* SYNC NOTIFICATION BANNER */}
@@ -390,7 +1473,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             {/* Discovered System Skills (Grid vs Single-Row List View) */}
-            {skillsViewMode === 'grid' ? (
+            {settingsViewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredSystemSkills.map((sysSkill) => (
                   <div
@@ -501,7 +1584,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             {/* SKILLS TILES GRID VIEW VS SINGLE-ROW LIST VIEW */}
-            {skillsViewMode === 'grid' ? (
+            {settingsViewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(formData.customSkills || []).map((skill) => (
                   <div
@@ -640,71 +1723,114 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            {/* Connectors Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredConnectors.map((c) => {
-                const isConn = c.status === 'Connected';
-                return (
-                  <div
-                    key={c.id}
-                    className={`p-5 rounded-2xl glass-card border transition-all space-y-3 flex flex-col justify-between ${
-                      isConn ? 'border-emerald-500/40 bg-emerald-950/10' : 'border-slate-800 hover:border-indigo-500/40'
-                    }`}
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2 rounded-xl bg-obsidian-950 border border-slate-800 shrink-0">
-                            {getConnectorIcon(c.icon)}
+            {/* Connectors: Tiles vs List */}
+            {settingsViewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredConnectors.map((c) => {
+                  const isConn = c.status === 'Connected';
+                  return (
+                    <div
+                      key={c.id}
+                      className={`p-5 rounded-2xl glass-card border transition-all space-y-3 flex flex-col justify-between ${
+                        isConn ? 'border-emerald-500/40 bg-emerald-950/10' : 'border-slate-800 hover:border-indigo-500/40'
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-2 rounded-xl bg-obsidian-950 border border-slate-800 shrink-0">
+                              {getConnectorIcon(c.icon)}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-slate-100 text-sm">{c.name}</h4>
+                              <span className="text-[10px] text-slate-400 uppercase font-semibold block">{c.ecosystem}</span>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-bold text-slate-100 text-sm">{c.name}</h4>
-                            <span className="text-[10px] text-slate-400 uppercase font-semibold block">{c.ecosystem}</span>
-                          </div>
+
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                              isConn
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : 'bg-slate-800 text-slate-400 border border-slate-700'
+                            }`}
+                          >
+                            {isConn ? 'Connected' : 'Not Connected'}
+                          </span>
                         </div>
 
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                        <p className="text-xs text-slate-300 leading-relaxed">{c.description}</p>
+
+                        <div className="p-2 rounded-lg bg-obsidian-950/80 border border-slate-800 text-[10px] text-emerald-300 flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span className="truncate">{c.complianceCert}</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-800/60 space-y-2">
+                        {isConn && c.connectedUser && (
+                          <span className="text-[11px] text-emerald-400 font-medium block truncate">
+                            User: <strong>{c.connectedUser}</strong>
+                          </span>
+                        )}
+
+                        <button
+                          onClick={() => setSelectedConnectorForSetup(c)}
+                          className={`w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                             isConn
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : 'bg-slate-800 text-slate-400 border border-slate-700'
+                              ? 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                              : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-600/30'
                           }`}
                         >
-                          {isConn ? 'Connected' : 'Not Connected'}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-slate-300 leading-relaxed">{c.description}</p>
-
-                      <div className="p-2 rounded-lg bg-obsidian-950/80 border border-slate-800 text-[10px] text-emerald-300 flex items-center gap-1.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        <span className="truncate">{c.complianceCert}</span>
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>{isConn ? 'Reconfigure IDP' : 'Sign In with IDP'}</span>
+                        </button>
                       </div>
                     </div>
-
-                    <div className="pt-2 border-t border-slate-800/60 space-y-2">
-                      {isConn && c.connectedUser && (
-                        <span className="text-[11px] text-emerald-400 font-medium block truncate">
-                          User: <strong>{c.connectedUser}</strong>
-                        </span>
-                      )}
-
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="glass-panel rounded-2xl border border-slate-800 overflow-hidden divide-y divide-slate-800/60">
+                {filteredConnectors.map((c) => {
+                  const isConn = c.status === 'Connected';
+                  return (
+                    <div
+                      key={c.id}
+                      className="p-3 hover:bg-slate-800/40 transition-all flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="p-2 rounded-lg bg-obsidian-950 border border-slate-800 shrink-0">
+                          {getConnectorIcon(c.icon)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-slate-100 text-xs truncate">{c.name}</h4>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                                isConn
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                  : 'bg-slate-800 text-slate-400'
+                              }`}
+                            >
+                              {isConn ? 'Connected' : 'Not Connected'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 truncate">{c.description}</p>
+                        </div>
+                      </div>
                       <button
                         onClick={() => setSelectedConnectorForSetup(c)}
-                        className={`w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                          isConn
-                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                            : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-600/30'
+                        className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 ${
+                          isConn ? 'bg-slate-800 text-slate-300' : 'brand-button'
                         }`}
                       >
-                        <Lock className="w-3.5 h-3.5" />
-                        <span>{isConn ? 'Reconfigure IDP' : 'Sign In with IDP'}</span>
+                        {isConn ? 'Reconfigure' : 'Connect'}
                       </button>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -736,53 +1862,92 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            {/* Provider Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {(formData.aiProviders || []).map((prov) => (
-                <div
-                  key={prov.id}
-                  className={`p-5 rounded-2xl glass-card border transition-all space-y-3 ${
-                    prov.isDefault
-                      ? 'border-indigo-500/50 bg-indigo-950/20 shadow-glow-indigo'
-                      : 'border-slate-800'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Cpu className="w-5 h-5 text-indigo-400" />
-                      <h4 className="font-bold text-slate-100 text-sm">{prov.provider}</h4>
+            {/* Provider cards: Tiles vs List */}
+            {settingsViewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(formData.aiProviders || []).map((prov) => (
+                  <div
+                    key={prov.id}
+                    className={`p-5 rounded-2xl glass-card border transition-all space-y-3 ${
+                      prov.isDefault
+                        ? 'border-indigo-500/50 bg-indigo-950/20 shadow-glow-indigo'
+                        : 'border-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Cpu className="w-5 h-5 text-indigo-400" />
+                        <h4 className="font-bold text-slate-100 text-sm">{prov.provider}</h4>
+                      </div>
+                      {prov.isDefault ? (
+                        <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold">
+                          Default Engine
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setDefaultProvider(prov.id)}
+                          className="text-[11px] text-slate-400 hover:text-indigo-300 underline font-semibold"
+                        >
+                          Set Default
+                        </button>
+                      )}
                     </div>
-                    {prov.isDefault ? (
-                      <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold">
-                        Default Engine
+
+                    <div className="space-y-1 text-xs">
+                      <span className="text-slate-400 block">Endpoint URL:</span>
+                      <code className="p-2 rounded-lg bg-obsidian-950 border border-slate-800 block text-indigo-300 font-mono text-[11px] truncate">
+                        {prov.endpoint}
+                      </code>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1">
+                      <span className="text-slate-400">
+                        Model: <strong className="text-slate-100">{prov.selectedModel}</strong>
                       </span>
-                    ) : (
-                      <button
-                        onClick={() => setDefaultProvider(prov.id)}
-                        className="text-[11px] text-slate-400 hover:text-indigo-300 underline font-semibold"
-                      >
-                        Set Default
-                      </button>
-                    )}
+                      <span className="text-emerald-400 font-bold flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Connected</span>
+                      </span>
+                    </div>
                   </div>
-
-                  <div className="space-y-1 text-xs">
-                    <span className="text-slate-400 block">Endpoint URL:</span>
-                    <code className="p-2 rounded-lg bg-obsidian-950 border border-slate-800 block text-indigo-300 font-mono text-[11px] truncate">
-                      {prov.endpoint}
-                    </code>
+                ))}
+              </div>
+            ) : (
+              <div className="glass-panel rounded-2xl border border-slate-800 overflow-hidden divide-y divide-slate-800/60">
+                {(formData.aiProviders || []).map((prov) => (
+                  <div
+                    key={prov.id}
+                    className="p-3 hover:bg-slate-800/40 transition-all flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <Cpu className="w-4 h-4 text-indigo-400 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-slate-100 text-xs">{prov.provider}</h4>
+                          {prov.isDefault && (
+                            <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-bold">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400 truncate font-mono">{prov.endpoint}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[11px] text-slate-300">{prov.selectedModel}</span>
+                      {!prov.isDefault && (
+                        <button
+                          onClick={() => setDefaultProvider(prov.id)}
+                          className="text-[11px] brand-text underline font-semibold"
+                        >
+                          Set Default
+                        </button>
+                      )}
+                    </div>
                   </div>
-
-                  <div className="flex items-center justify-between text-xs pt-1">
-                    <span className="text-slate-400">Model: <strong className="text-slate-100">{prov.selectedModel}</strong></span>
-                    <span className="text-emerald-400 font-bold flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Connected</span>
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -804,7 +1969,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           <textarea
-            rows={14}
+            rows={settingsViewMode === 'list' ? 8 : 14}
             value={formData.claudeMdContent}
             onChange={(e) => setFormData({ ...formData, claudeMdContent: e.target.value })}
             className="w-full p-4 rounded-xl glass-input font-mono text-xs text-slate-200 leading-relaxed resize-none"
@@ -814,23 +1979,52 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* SUB-TAB 5: SYSTEM & AUTO-START */}
       {subTab === 'system' && (
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
-          <div className="border-b border-slate-800 pb-3">
-            <h3 className="font-bold text-slate-100 text-base">System Preferences & Auto-Start</h3>
-            <p className="text-xs text-slate-400">Configure Windows startup settings and local laptop data storage.</p>
+        <div className="space-y-4">
+          <div className="glass-panel p-5 rounded-2xl border border-slate-800">
+            <h3 className="font-bold text-slate-100 text-base">System Preferences & Dual-Machine Setup</h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Day-to-day use <span className="text-slate-200 font-semibold">npm run dev</span> (Vite) on Mac or Windows.
+              Electron packaging is optional — see <span className="font-mono text-slate-300">npm run electron</span>.
+            </p>
           </div>
 
-          <div className="p-4 rounded-xl glass-card border border-emerald-500/30 flex items-center justify-between">
+          <div
+            className={
+              settingsViewMode === 'grid'
+                ? 'grid grid-cols-1 md:grid-cols-2 gap-4'
+                : 'space-y-4'
+            }
+          >
+          <div className="p-4 rounded-xl glass-card border border-slate-700/60 space-y-2">
+            <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
+              <Monitor className="w-4 h-4" />
+              <span>Detected host</span>
+            </span>
+            <p className="text-[11px] text-slate-300">
+              Platform: <span className="font-semibold text-slate-100">{hostPlatform}</span>
+              {' · '}
+              Home for skill paths:{' '}
+              <span className="font-mono text-indigo-300">{homeDirectory}</span>
+            </p>
+            <p className="text-[10px] text-slate-500">
+              Override with <span className="font-mono">VITE_HOME_DIR</span> or{' '}
+              <span className="font-mono">VITE_USERNAME</span> in a local <span className="font-mono">.env</span> (not committed).
+              Skill paths are mock catalog URLs — they do not prove folders exist on disk.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl glass-card border border-emerald-500/30 flex items-center justify-between gap-4">
             <div className="space-y-0.5">
               <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
                 <Power className="w-4 h-4" />
-                <span>Windows Auto-Start on Boot</span>
+                <span>Auto-Start on Login</span>
               </span>
               <p className="text-[11px] text-slate-300">
-                Launch the dashboard automatically whenever your computer boots up or restarts.
+                Preference only in the browser. Real login-item registration requires the Electron shell
+                (<span className="font-mono">npm run electron</span> after <span className="font-mono">npm run build</span>).
               </p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
+            <label className="relative inline-flex items-center cursor-pointer shrink-0">
               <input
                 type="checkbox"
                 checked={formData.autoStartOnBoot}
@@ -841,7 +2035,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </label>
           </div>
 
-          <div className="pt-2 flex justify-start">
+          <div className="p-4 rounded-xl glass-card border border-indigo-500/30 space-y-3">
+            <div>
+              <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                <Download className="w-4 h-4" />
+                <span>Move browser state between machines</span>
+              </span>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Settings, mock data, and skills live in this browser&apos;s localStorage. Mac Chrome ≠ Windows Chrome —
+                export a JSON file here, copy it over, then import on the other machine.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExportWorkspace}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Workspace</span>
+              </button>
+              <label className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <Upload className="w-3.5 h-3.5" />
+                <span>Import Workspace</span>
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={(e) => {
+                    handleImportWorkspace(e.target.files?.[0] ?? null);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+            {workspaceTransferMessage && (
+              <p className="text-[11px] text-emerald-400 font-medium">{workspaceTransferMessage}</p>
+            )}
+          </div>
+
+          <div className="pt-2 flex justify-start md:col-span-2">
             <button
               onClick={onResetMockData}
               className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5"
@@ -849,6 +2082,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Reset Demo Data</span>
             </button>
+          </div>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Shield,
   Sparkles,
@@ -8,89 +8,185 @@ import {
   Bell,
   Brain,
   Settings,
-  Power,
-  Search,
   Rocket,
   LayoutGrid,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
-import { TabType, AppSettings } from '../types';
+import { TabType, AppSettings, SidebarNavId } from '../types';
+import { normalizeSidebarNavOrder } from '../services/navOrder';
 
 interface NavigationProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
   settings: AppSettings;
-  onOpenSettings: () => void;
-  onOpenCommandPalette: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
   unreadAlertsCount: number;
 }
+
+const NAV_ICONS: Record<SidebarNavId, React.ReactNode> = {
+  'command-center': <LayoutGrid className="w-4 h-4" />,
+  'product-portfolio': <Rocket className="w-4 h-4" />,
+  'chief-of-staff': <Sparkles className="w-4 h-4" />,
+  outlook: <Calendar className="w-4 h-4" />,
+  'notion-krisp': <FileText className="w-4 h-4" />,
+  'app-launcher': <Grid className="w-4 h-4" />,
+  'priority-alerts': <Bell className="w-4 h-4" />,
+  'knowledge-clone': <Brain className="w-4 h-4" />,
+};
 
 export const Navigation: React.FC<NavigationProps> = ({
   activeTab,
   setActiveTab,
   settings,
-  onOpenSettings,
-  onOpenCommandPalette,
+  collapsed,
+  onToggleCollapsed,
   unreadAlertsCount,
 }) => {
-  const navItems: { id: TabType; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: 'command-center', label: 'Command Center', icon: <LayoutGrid className="w-4 h-4 text-indigo-400" /> },
-    { id: 'product-portfolio', label: 'Product Delivery Matrix', icon: <Rocket className="w-4 h-4 text-purple-400" /> },
-    { id: 'chief-of-staff', label: 'Chief of Staff', icon: <Sparkles className="w-4 h-4 text-amber-400" /> },
-    { id: 'outlook', label: 'Outlook Inbox & Cal', icon: <Calendar className="w-4 h-4 text-cyan-400" /> },
-    { id: 'notion-krisp', label: 'Notion & Krisp', icon: <FileText className="w-4 h-4 text-emerald-400" /> },
-    { id: 'app-launcher', label: 'App Launcher', icon: <Grid className="w-4 h-4 text-gold-400" /> },
-    {
-      id: 'priority-alerts',
-      label: 'Priority Alerts',
-      icon: <Bell className="w-4 h-4 text-rose-400" />,
-      badge: unreadAlertsCount > 0 ? unreadAlertsCount : undefined,
-    },
-    { id: 'knowledge-clone', label: 'Local KB & AI Clone', icon: <Brain className="w-4 h-4 text-purple-300" /> },
-    { id: 'settings', label: 'Settings & AI Config', icon: <Settings className="w-4 h-4 text-indigo-300" /> },
-  ];
+  const mainNavItems = useMemo(() => {
+    const catalog: Record<
+      SidebarNavId,
+      { id: SidebarNavId; label: string; icon: React.ReactNode; badge?: number }
+    > = {
+      'command-center': {
+        id: 'command-center',
+        label: settings.workspaceName || 'Command Center',
+        icon: NAV_ICONS['command-center'],
+      },
+      'product-portfolio': {
+        id: 'product-portfolio',
+        label: 'Product Delivery',
+        icon: NAV_ICONS['product-portfolio'],
+      },
+      'chief-of-staff': {
+        id: 'chief-of-staff',
+        label: settings.chiefOfStaffName || 'Chief of Staff',
+        icon: NAV_ICONS['chief-of-staff'],
+      },
+      outlook: {
+        id: 'outlook',
+        label: 'Outlook & Calendar',
+        icon: NAV_ICONS.outlook,
+      },
+      'notion-krisp': {
+        id: 'notion-krisp',
+        label: 'Notion & Krisp',
+        icon: NAV_ICONS['notion-krisp'],
+      },
+      'app-launcher': {
+        id: 'app-launcher',
+        label: 'App Launcher',
+        icon: NAV_ICONS['app-launcher'],
+      },
+      'priority-alerts': {
+        id: 'priority-alerts',
+        label: 'Priority Alerts',
+        icon: NAV_ICONS['priority-alerts'],
+        badge: unreadAlertsCount > 0 ? unreadAlertsCount : undefined,
+      },
+      'knowledge-clone': {
+        id: 'knowledge-clone',
+        label: 'KB & AI Clone',
+        icon: NAV_ICONS['knowledge-clone'],
+      },
+    };
+
+    return normalizeSidebarNavOrder(settings.sidebarNavOrder).map((id) => catalog[id]);
+  }, [
+    settings.sidebarNavOrder,
+    settings.workspaceName,
+    settings.chiefOfStaffName,
+    unreadAlertsCount,
+  ]);
+
+  const settingsActive = activeTab === 'settings';
 
   return (
-    <header className="sticky top-0 z-40 glass-panel border-b border-slate-800/80 px-4 py-3 flex flex-wrap items-center justify-between gap-4">
-      {/* Brand & Executive Identity */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-amber-500 p-0.5 shadow-glow-indigo flex items-center justify-center">
-          <div className="w-full h-full bg-obsidian-950 rounded-[10px] flex items-center justify-center">
-            <Shield className="w-5 h-5 text-indigo-400" />
+    <aside
+      className={`sticky top-0 h-screen shrink-0 z-40 flex flex-col border-r transition-[width] duration-200 ease-out ${
+        collapsed ? 'w-[72px]' : 'w-[260px]'
+      }`}
+      style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--app-border)' }}
+    >
+      <div
+        className={`flex items-center gap-2 border-b px-3 py-3 ${collapsed ? 'justify-center' : ''}`}
+        style={{ borderColor: 'var(--app-border)' }}
+      >
+        {settings.markDataUrl || settings.logoDataUrl ? (
+          <img
+            src={settings.markDataUrl || settings.logoDataUrl}
+            alt=""
+            className="w-9 h-9 rounded-xl object-cover shrink-0 border"
+            style={{ borderColor: 'var(--app-border)' }}
+          />
+        ) : (
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-amber-500 p-0.5 shadow-glow-indigo flex items-center justify-center shrink-0">
+            <div className="w-full h-full rounded-[10px] flex items-center justify-center bg-[var(--app-bg)]">
+              <Shield className="w-4 h-4 text-indigo-400" />
+            </div>
           </div>
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-bold text-base tracking-tight text-white font-sans">
-              Head of Product Command Center
-            </h1>
-            <span className="px-2 py-0.5 text-[10px] font-extrabold tracking-wider bg-gradient-to-r from-indigo-500/30 to-purple-500/30 text-indigo-300 border border-indigo-500/40 rounded-full uppercase">
-              Execution Co-Pilot
-            </span>
+        )}
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold truncate text-[var(--app-fg)]">
+              {settings.workspaceName || 'Command Center'}
+            </p>
+            <p className="text-[10px] truncate">
+              <span className="brand-text-secondary font-semibold">
+                {settings.chiefOfStaffName || 'Atlas'}
+              </span>
+              <span className="text-[var(--app-muted)]"> · {settings.userName}</span>
+            </p>
           </div>
-          <p className="text-xs text-slate-400">
-            {settings.userName} • <span className="text-indigo-400 font-semibold">{settings.userTitle}</span>
-          </p>
-        </div>
+        )}
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          className="p-1.5 rounded-lg text-[var(--app-muted)] hover:text-[var(--app-fg)] hover:bg-slate-800/40 transition-colors shrink-0"
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+        </button>
       </div>
 
-      {/* Navigation Tabs */}
-      <nav className="flex items-center gap-1 bg-obsidian-900/90 p-1 rounded-xl border border-slate-800/80 overflow-x-auto">
-        {navItems.map((item) => {
+      <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+        {mainNavItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
             <button
               key={item.id}
+              type="button"
               onClick={() => setActiveTab(item.id)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap relative ${
+              title={item.label}
+              className={`relative w-full flex items-center gap-2.5 rounded-xl text-xs font-medium transition-all ${
+                collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
+              } ${
                 isActive
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg border border-indigo-400/30 font-semibold'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-obsidian-800/60'
+                  ? 'brand-gradient shadow-md brand-ring'
+                  : 'text-[var(--app-muted)] hover:text-[var(--app-fg)] hover:bg-slate-800/40'
               }`}
             >
-              {item.icon}
-              <span>{item.label}</span>
+              <span
+                className="shrink-0"
+                style={isActive ? { color: 'var(--brand-on-accent)' } : undefined}
+              >
+                {item.icon}
+              </span>
+              {!collapsed && (
+                <span
+                  className="truncate flex-1 text-left"
+                  style={isActive ? { color: 'var(--brand-on-accent)' } : undefined}
+                >
+                  {item.label}
+                </span>
+              )}
               {item.badge !== undefined && (
-                <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                <span
+                  className={`rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse ${
+                    collapsed ? 'absolute top-1 right-1 w-4 h-4' : 'w-5 h-5'
+                  }`}
+                >
                   {item.badge}
                 </span>
               )}
@@ -99,43 +195,36 @@ export const Navigation: React.FC<NavigationProps> = ({
         })}
       </nav>
 
-      {/* Search, Auto-Start Status & Settings */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Command Palette Trigger Button */}
+      <div className="p-2 border-t" style={{ borderColor: 'var(--app-border)' }}>
+        {!collapsed && (
+          <p className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-wider brand-text-secondary">
+            Configuration
+          </p>
+        )}
         <button
-          onClick={onOpenCommandPalette}
-          className="px-3 py-1.5 rounded-xl bg-obsidian-900 hover:bg-slate-800 border border-slate-700/80 text-slate-300 text-xs font-medium flex items-center gap-2 transition-all shadow-sm"
-        >
-          <Search className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="hidden md:inline">Search...</span>
-          <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-slate-800 text-slate-400 rounded border border-slate-700">
-            Ctrl+K
-          </kbd>
-        </button>
-
-        {/* Auto-Start Status Badge */}
-        <div
-          title={settings.autoStartOnBoot ? 'Windows Auto-Start is Active' : 'Auto-Start is Disabled'}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
-            settings.autoStartOnBoot
-              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-              : 'bg-slate-800/50 text-slate-400 border-slate-700'
+          type="button"
+          onClick={() => setActiveTab('settings')}
+          title="Settings & Config"
+          className={`w-full flex items-center gap-2.5 rounded-xl text-xs font-semibold transition-all ${
+            collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
+          } ${
+            settingsActive
+              ? 'brand-secondary-fill shadow-md'
+              : 'text-[var(--app-muted)] hover:text-[var(--app-fg)] hover:bg-slate-800/40 border border-transparent'
           }`}
+          style={
+            settingsActive ? { color: 'var(--brand-on-secondary)' } : undefined
+          }
         >
-          <Power className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Auto-Start:</span>
-          <span className="font-semibold">{settings.autoStartOnBoot ? 'ON' : 'OFF'}</span>
-        </div>
-
-        {/* Settings Button */}
-        <button
-          onClick={onOpenSettings}
-          className="p-2 rounded-xl bg-obsidian-800/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white transition-all shadow-sm"
-          title="App Settings & Integration Keys"
-        >
-          <Settings className="w-4 h-4" />
+          <Settings className="w-4 h-4 shrink-0" />
+          {!collapsed && <span className="truncate">Settings & Config</span>}
         </button>
+        {!collapsed && (
+          <p className="px-2 pt-2 text-[10px] text-[var(--app-muted)] leading-snug">
+            Personalization, workspace layout, skills, AI models, and system preferences.
+          </p>
+        )}
       </div>
-    </header>
+    </aside>
   );
 };
