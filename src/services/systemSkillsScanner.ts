@@ -1,12 +1,60 @@
 import { SystemDiscoveredSkill } from '../types';
 
-export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
-  // GOOGLE ANTIGRAVITY PLUGINS & SKILLS (ACTUALLY INSTALLED ON LOCAL MACHINE)
+export type HostPlatform = 'windows' | 'mac' | 'linux';
+
+/** Detect OS in the browser; Electron can also set VITE_PLATFORM. */
+export function detectHostPlatform(): HostPlatform {
+  const override = import.meta.env.VITE_PLATFORM as string | undefined;
+  if (override === 'windows' || override === 'mac' || override === 'linux') {
+    return override;
+  }
+
+  const ua = navigator.userAgent;
+  if (/Windows/i.test(ua)) return 'windows';
+  if (/Mac OS X|Macintosh/i.test(ua)) return 'mac';
+  return 'linux';
+}
+
+/**
+ * Resolve the local home directory used for mock "discovered skill" paths.
+ * Prefer VITE_HOME_DIR so Windows (`C:/Users/ahalliday`) and Mac (`/Users/adamhalliday`)
+ * can differ without code changes.
+ */
+export function getHomeDirectory(): string {
+  const homeOverride = (import.meta.env.VITE_HOME_DIR as string | undefined)?.trim();
+  if (homeOverride) {
+    return homeOverride.replace(/\\/g, '/').replace(/\/$/, '');
+  }
+
+  const username =
+    (import.meta.env.VITE_USERNAME as string | undefined)?.trim() || 'adamhalliday';
+  const platform = detectHostPlatform();
+
+  if (platform === 'windows') return `C:/Users/${username}`;
+  if (platform === 'mac') return `/Users/${username}`;
+  return `/home/${username}`;
+}
+
+/** Build a file:// URL for a path under the current machine's home directory. */
+export function homeFileUrl(...segments: string[]): string {
+  const home = getHomeDirectory();
+  const joined = [home, ...segments].join('/').replace(/\/{2,}/g, '/');
+  // Windows paths need file:///C:/... ; POSIX needs file:///Users/...
+  if (/^[A-Za-z]:\//.test(joined)) {
+    return `file:///${joined}`;
+  }
+  return `file://${joined.startsWith('/') ? joined : `/${joined}`}`;
+}
+
+type SkillSeed = Omit<SystemDiscoveredSkill, 'path'> & { relativePath: string };
+
+const SKILL_SEEDS: SkillSeed[] = [
+  // GOOGLE ANTIGRAVITY PLUGINS & SKILLS
   {
     id: 'sys-anti-1',
     name: 'android-cli-plugin',
     sourceSystem: 'Antigravity',
-    path: 'file:///C:/Users/ahalliday/.gemini/config/plugins/android-cli-plugin',
+    relativePath: '.gemini/config/plugins/android-cli-plugin',
     description: 'Android SDK management, project building, ADB device deployment, & Gradle diagnostics.',
     category: 'System Plugin',
     isInstalled: true,
@@ -17,7 +65,7 @@ export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
     id: 'sys-anti-2',
     name: 'chrome-devtools-plugin',
     sourceSystem: 'Antigravity',
-    path: 'file:///C:/Users/ahalliday/.gemini/config/plugins/chrome-devtools-plugin',
+    relativePath: '.gemini/config/plugins/chrome-devtools-plugin',
     description: 'Headless Chrome devtools automation, DOM element inspection, & page performance audit.',
     category: 'Browser',
     isInstalled: true,
@@ -28,7 +76,7 @@ export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
     id: 'sys-anti-3',
     name: 'data-agent-kit-plugin',
     sourceSystem: 'Antigravity',
-    path: 'file:///C:/Users/ahalliday/.gemini/config/plugins/data-agent-kit-plugin',
+    relativePath: '.gemini/config/plugins/data-agent-kit-plugin',
     description: 'Local vector search, SQLite data indexing, & structured JSON dataset extraction.',
     category: 'Database',
     isInstalled: true,
@@ -39,7 +87,7 @@ export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
     id: 'sys-anti-4',
     name: 'firebase-plugin',
     sourceSystem: 'Antigravity',
-    path: 'file:///C:/Users/ahalliday/.gemini/config/plugins/firebase',
+    relativePath: '.gemini/config/plugins/firebase',
     description: 'Firebase Firestore DB sync, authentication triggers, & cloud function deployment.',
     category: 'Database',
     isInstalled: true,
@@ -50,7 +98,7 @@ export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
     id: 'sys-anti-5',
     name: 'google-antigravity-sdk',
     sourceSystem: 'Antigravity',
-    path: 'file:///C:/Users/ahalliday/.gemini/config/plugins/google-antigravity-sdk',
+    relativePath: '.gemini/config/plugins/google-antigravity-sdk',
     description: 'Core Antigravity subagent orchestration, tool routing, & sandbox terminal execution.',
     category: 'System Plugin',
     isInstalled: true,
@@ -61,7 +109,7 @@ export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
     id: 'sys-anti-6',
     name: 'modern-web-guidance-plugin',
     sourceSystem: 'Antigravity',
-    path: 'file:///C:/Users/ahalliday/.gemini/config/plugins/modern-web-guidance-plugin',
+    relativePath: '.gemini/config/plugins/modern-web-guidance-plugin',
     description: 'Vite, React, Tailwind, HSL design system rules, & web accessibility standards.',
     category: 'Development',
     isInstalled: true,
@@ -74,7 +122,7 @@ export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
     id: 'sys-claude-1',
     name: 'Claude System Prompt & Artifacts Skill',
     sourceSystem: 'Claude',
-    path: 'file:///C:/Users/ahalliday/.claude/skills/artifacts-engine',
+    relativePath: '.claude/skills/artifacts-engine',
     description: 'Generates interactive React artifacts, mermaid architectural diagrams, & markdown decks.',
     category: 'Intelligence',
     isInstalled: true,
@@ -85,7 +133,7 @@ export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
     id: 'sys-claude-2',
     name: 'Claude Code Interpreter Plugin',
     sourceSystem: 'Claude',
-    path: 'file:///C:/Users/ahalliday/.claude/plugins/code-interpreter',
+    relativePath: '.claude/plugins/code-interpreter',
     description: 'Executes Python pandas scripts, data visualizer charts, & SVG chart rendering.',
     category: 'Development',
     isInstalled: true,
@@ -98,7 +146,7 @@ export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
     id: 'sys-gemini-1',
     name: 'Gemini Multimodal Reasoning Skill',
     sourceSystem: 'Gemini',
-    path: 'file:///C:/Users/ahalliday/.gemini/skills/multimodal-reasoning',
+    relativePath: '.gemini/skills/multimodal-reasoning',
     description: 'Analyzes high-res UI screenshots, wireframes, PDF spec documents, & audio notes.',
     category: 'Intelligence',
     isInstalled: true,
@@ -109,7 +157,7 @@ export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
     id: 'sys-studio-1',
     name: 'Google AI Studio Function Calling',
     sourceSystem: 'Google AI Studio',
-    path: 'file:///C:/Users/ahalliday/.gemini/plugins/function-calling',
+    relativePath: '.gemini/plugins/function-calling',
     description: 'Structured JSON schema output validation and REST API function execution.',
     category: 'System Plugin',
     isInstalled: true,
@@ -122,7 +170,7 @@ export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
     id: 'sys-cursor-1',
     name: 'Cursor .cursorrules Architecture Engine',
     sourceSystem: 'Cursor',
-    path: 'file:///C:/Users/ahalliday/.cursor/rules/project-rules',
+    relativePath: '.cursor/rules/project-rules',
     description: 'Enforces project linting rules, component file structures, & strict type checking.',
     category: 'Development',
     isInstalled: true,
@@ -135,7 +183,7 @@ export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
     id: 'sys-gpt-1',
     name: 'ChatGPT Code Interpreter & Data Analysis',
     sourceSystem: 'ChatGPT',
-    path: 'file:///C:/Users/ahalliday/.openai/plugins/code-interpreter',
+    relativePath: '.openai/plugins/code-interpreter',
     description: 'Jupyter notebook code runner, CSV data transformation, & statistics modeling.',
     category: 'Development',
     isInstalled: true,
@@ -148,7 +196,7 @@ export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
     id: 'sys-perpx-1',
     name: 'Perplexity Deep Research Engine',
     sourceSystem: 'Perplexity',
-    path: 'file:///C:/Users/ahalliday/.perplexity/plugins/deep-research',
+    relativePath: '.perplexity/plugins/deep-research',
     description: 'Real-time web search citation engine with academic & industry paper summaries.',
     category: 'Intelligence',
     isInstalled: true,
@@ -156,3 +204,14 @@ export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = [
     version: '2.1.0',
   },
 ];
+
+/** Build the discovered-skills catalog with paths for the current OS. */
+export function getDiscoveredSystemSkills(): SystemDiscoveredSkill[] {
+  return SKILL_SEEDS.map(({ relativePath, ...skill }) => ({
+    ...skill,
+    path: homeFileUrl(...relativePath.split('/')),
+  }));
+}
+
+/** Snapshot for callers that expect a constant array (recomputed per module load). */
+export const DISCOVERED_SYSTEM_SKILLS: SystemDiscoveredSkill[] = getDiscoveredSystemSkills();

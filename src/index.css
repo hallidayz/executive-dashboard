@@ -1,60 +1,371 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+/* ── Theme tokens ─────────────────────────────────────────── */
+:root,
+html.dark {
+  color-scheme: dark;
+  --app-bg: #0b0d12;
+  --app-fg: #f8fafc;
+  --app-muted: #94a3b8;
+  --app-border: rgba(255, 255, 255, 0.08);
+  --glass-panel: rgba(17, 20, 29, 0.9);
+  --glass-card: rgba(22, 27, 39, 0.75);
+  --glass-input: rgba(11, 13, 18, 0.85);
+  --sidebar-bg: rgba(17, 20, 29, 0.96);
+  --header-bg: rgba(17, 20, 29, 0.88);
+  --scroll-track: rgba(11, 13, 18, 0.5);
+  --scroll-thumb: rgba(61, 72, 98, 0.55);
+  /* Brand tokens (overridden by brandingService) */
+  --brand-accent: #6366f1;
+  --brand-accent-secondary: #9333ea;
+  --brand-font: #818cf8;
+  --brand-font-secondary: #c084fc;
+  --brand-on-accent: #ffffff;
+  --brand-on-secondary: #ffffff;
+  --brand-secondary-border: rgba(147, 51, 234, 0.4);
+  --brand-accent-hover: #818cf8;
+  --brand-accent-pressed: #4f46e5;
+  --brand-accent-soft: rgba(99, 102, 241, 0.16);
+  --brand-accent-soft-strong: rgba(99, 102, 241, 0.26);
+  --brand-accent-border: rgba(99, 102, 241, 0.4);
+  --brand-secondary-soft: rgba(147, 51, 234, 0.16);
+  --brand-glow: rgba(99, 102, 241, 0.35);
+  --brand-button: #6366f1;
+  --brand-gradient: linear-gradient(135deg, #6366f1, #9333ea);
+  --brand-gradient-x: linear-gradient(90deg, #6366f1, #9333ea);
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', 'Inter', system-ui, sans-serif;
+}
+
+html.light {
+  color-scheme: light;
+  --app-bg: #eef1f7;
+  --app-fg: #0f172a;
+  --app-muted: #64748b;
+  --app-border: rgba(15, 23, 42, 0.1);
+  --glass-panel: rgba(255, 255, 255, 0.92);
+  --glass-card: rgba(255, 255, 255, 0.88);
+  --glass-input: rgba(255, 255, 255, 0.95);
+  --sidebar-bg: rgba(255, 255, 255, 0.96);
+  --header-bg: rgba(255, 255, 255, 0.9);
+  --scroll-track: rgba(226, 232, 240, 0.8);
+  --scroll-thumb: rgba(148, 163, 184, 0.7);
+}
+
 @layer base {
   body {
-    background-color: #0B0D12;
-    color: #F8FAFC;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--app-bg);
+    color: var(--app-fg);
+    font-family: var(--font-body);
+    transition: background-color 0.2s ease, color 0.2s ease, font-family 0.15s ease;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+
+  button, input, select, textarea {
+    font-family: inherit;
   }
 }
 
-/* Custom Glassmorphism Utility Classes */
+.font-sans {
+  font-family: var(--font-body) !important;
+}
+
+/* Glass surfaces follow theme */
 .glass-panel {
-  background: rgba(17, 20, 29, 0.85);
+  background: var(--glass-panel);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--app-border);
 }
 
 .glass-card {
-  background: rgba(22, 27, 39, 0.7);
+  background: var(--glass-card);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--app-border);
   transition: all 0.2s ease-in-out;
 }
 
 .glass-card:hover {
-  border-color: rgba(99, 102, 241, 0.3);
+  border-color: var(--brand-accent-border);
   transform: translateY(-2px);
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.25);
 }
 
 .glass-input {
-  background: rgba(11, 13, 18, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #F8FAFC;
+  background: var(--glass-input);
+  border: 1px solid var(--app-border);
+  color: var(--app-fg);
   outline: none;
+  font-family: var(--font-body);
 }
 
 .glass-input:focus {
-  border-color: #6366F1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 0 2px var(--brand-accent-soft);
 }
 
-/* Custom Scrollbars */
+/* Brand utility classes */
+.brand-gradient {
+  background-image: var(--brand-gradient) !important;
+  background-color: var(--brand-accent) !important;
+  color: var(--brand-on-accent) !important;
+}
+.brand-gradient-x {
+  background-image: var(--brand-gradient-x) !important;
+  color: var(--brand-on-accent) !important;
+}
+.brand-text {
+  color: var(--brand-font) !important;
+}
+.brand-text-secondary {
+  color: var(--brand-font-secondary) !important;
+}
+.brand-border {
+  border-color: var(--brand-accent-border) !important;
+}
+.brand-border-secondary {
+  border-color: var(--brand-secondary-border) !important;
+}
+.brand-bg-soft {
+  background-color: var(--brand-accent-soft) !important;
+}
+.brand-bg-secondary-soft {
+  background-color: var(--brand-secondary-soft) !important;
+}
+.brand-ring {
+  box-shadow: 0 0 0 1px var(--brand-accent-border), 0 0 20px -4px var(--brand-glow);
+}
+.brand-badge {
+  background: var(--brand-accent-soft);
+  color: var(--brand-font);
+  border: 1px solid var(--brand-accent-border);
+}
+.brand-badge-secondary {
+  background: var(--brand-secondary-soft);
+  color: var(--brand-font-secondary);
+  border: 1px solid var(--brand-secondary-border);
+}
+.brand-button {
+  background-color: var(--brand-accent) !important;
+  color: var(--brand-on-accent) !important;
+}
+.brand-button:hover {
+  background-color: var(--brand-accent-hover) !important;
+}
+.brand-secondary-fill {
+  background-color: var(--brand-accent-secondary) !important;
+  color: var(--brand-on-secondary) !important;
+}
+
+.glass-input::placeholder {
+  color: var(--app-muted);
+}
+
+/*
+ * Global remaps: when personalization is applied, hardcoded indigo/purple
+ * Tailwind utilities used across views follow the brand tokens.
+ */
+html[data-brand-applied='true'] .bg-indigo-600,
+html[data-brand-applied='true'] .bg-indigo-500,
+html[data-brand-applied='true'] .bg-purple-600,
+html[data-brand-applied='true'] .bg-purple-500,
+html[data-brand-applied='true'] .bg-violet-600 {
+  background-color: var(--brand-accent) !important;
+  color: var(--brand-on-accent) !important;
+}
+
+html[data-brand-applied='true'] .hover\:bg-indigo-500:hover,
+html[data-brand-applied='true'] .hover\:bg-indigo-600:hover,
+html[data-brand-applied='true'] .hover\:from-purple-500:hover,
+html[data-brand-applied='true'] .hover\:to-indigo-500:hover {
+  background-color: var(--brand-accent-hover) !important;
+}
+
+html[data-brand-applied='true'] .bg-indigo-500\/10,
+html[data-brand-applied='true'] .bg-indigo-500\/15,
+html[data-brand-applied='true'] .bg-indigo-500\/20,
+html[data-brand-applied='true'] .bg-indigo-600\/20,
+html[data-brand-applied='true'] .bg-indigo-600\/30 {
+  background-color: var(--brand-accent-soft) !important;
+}
+
+html[data-brand-applied='true'] .bg-purple-500\/10,
+html[data-brand-applied='true'] .bg-purple-500\/20,
+html[data-brand-applied='true'] .bg-purple-600\/30 {
+  background-color: var(--brand-secondary-soft) !important;
+}
+
+html[data-brand-applied='true'] .bg-indigo-950\/80,
+html[data-brand-applied='true'] .bg-indigo-950\/90,
+html[data-brand-applied='true'] .via-indigo-950\/60,
+html[data-brand-applied='true'] .to-purple-950\/60,
+html[data-brand-applied='true'] .from-indigo-950\/80,
+html[data-brand-applied='true'] .to-purple-950\/80 {
+  background-color: var(--brand-accent-soft) !important;
+}
+
+/* Primary-tinted text (indigo family) */
+html[data-brand-applied='true'] .text-indigo-200,
+html[data-brand-applied='true'] .text-indigo-300,
+html[data-brand-applied='true'] .text-indigo-400,
+html[data-brand-applied='true'] .text-indigo-500,
+html[data-brand-applied='true'] .text-violet-300,
+html[data-brand-applied='true'] .text-violet-400,
+html[data-brand-applied='true'] .text-violet-500 {
+  color: var(--brand-font) !important;
+}
+
+/* Secondary-tinted text (purple family) */
+html[data-brand-applied='true'] .text-purple-200,
+html[data-brand-applied='true'] .text-purple-300,
+html[data-brand-applied='true'] .text-purple-400,
+html[data-brand-applied='true'] .text-purple-500 {
+  color: var(--brand-font-secondary) !important;
+}
+
+html[data-brand-applied='true'] .border-indigo-500\/30,
+html[data-brand-applied='true'] .border-indigo-500\/40,
+html[data-brand-applied='true'] .border-indigo-500\/50,
+html[data-brand-applied='true'] .border-indigo-400\/30,
+html[data-brand-applied='true'] .border-indigo-400\/40,
+html[data-brand-applied='true'] .border-purple-500\/30,
+html[data-brand-applied='true'] .border-purple-500\/40 {
+  border-color: var(--brand-accent-border) !important;
+}
+
+html[data-brand-applied='true'] .from-indigo-600,
+html[data-brand-applied='true'] .from-purple-600,
+html[data-brand-applied='true'] .from-indigo-500 {
+  --tw-gradient-from: var(--brand-accent) !important;
+  --tw-gradient-to: color-mix(in srgb, var(--brand-accent) 0%, transparent) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+html[data-brand-applied='true'] .to-purple-600,
+html[data-brand-applied='true'] .to-indigo-600,
+html[data-brand-applied='true'] .to-indigo-500,
+html[data-brand-applied='true'] .to-purple-500 {
+  --tw-gradient-to: var(--brand-accent-secondary) !important;
+}
+
+html[data-brand-applied='true'] .via-purple-600,
+html[data-brand-applied='true'] .via-indigo-600 {
+  --tw-gradient-to: color-mix(in srgb, var(--brand-accent-secondary) 0%, transparent);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--brand-accent-secondary), var(--tw-gradient-to);
+}
+
+html[data-brand-applied='true'] .bg-gradient-to-r.from-indigo-600,
+html[data-brand-applied='true'] .bg-gradient-to-r.from-purple-600,
+html[data-brand-applied='true'] .bg-gradient-to-tr.from-indigo-600 {
+  background-image: var(--brand-gradient-x) !important;
+  color: var(--brand-on-accent) !important;
+}
+
+html[data-brand-applied='true'] .shadow-indigo-600\/30,
+html[data-brand-applied='true'] .shadow-purple-600\/30,
+html[data-brand-applied='true'] .shadow-glow-indigo {
+  --tw-shadow-color: var(--brand-glow) !important;
+  box-shadow: 0 10px 25px -8px var(--brand-glow) !important;
+}
+
+html[data-brand-applied='true'] .ring-indigo-500,
+html[data-brand-applied='true'] .focus\:ring-indigo-500:focus {
+  --tw-ring-color: var(--brand-accent) !important;
+}
+
+/* Primary CTA buttons that only use solid indigo */
+html[data-brand-applied='true'] button.bg-indigo-600,
+html[data-brand-applied='true'] button.bg-purple-600,
+html[data-brand-applied='true'] a.bg-indigo-600,
+html[data-brand-applied='true'] label.bg-indigo-600,
+html[data-brand-applied='true'] label.bg-purple-600 {
+  background-color: var(--brand-accent) !important;
+  background-image: none;
+  color: var(--brand-on-accent) !important;
+  font-family: var(--font-body);
+}
+
+html[data-brand-applied='true'] button.bg-indigo-600:hover,
+html[data-brand-applied='true'] button.hover\:bg-indigo-500:hover,
+html[data-brand-applied='true'] label.bg-indigo-600:hover,
+html[data-brand-applied='true'] label.hover\:bg-indigo-500:hover {
+  background-color: var(--brand-accent-hover) !important;
+}
+
+/* Light-mode remaps for hardcoded dark utility classes */
+html.light .text-slate-100,
+html.light .text-slate-200 {
+  color: #0f172a;
+}
+html.light .text-slate-300 {
+  color: #334155;
+}
+html.light .text-slate-400,
+html.light .text-slate-500 {
+  color: #64748b;
+}
+
+html.light .bg-obsidian-950 {
+  background-color: #eef1f7;
+}
+html.light .bg-obsidian-900,
+html.light .bg-obsidian-900\/90 {
+  background-color: rgba(255, 255, 255, 0.95);
+}
+html.light .bg-obsidian-850,
+html.light .bg-obsidian-800,
+html.light .bg-obsidian-800\/80,
+html.light .bg-obsidian-800\/60 {
+  background-color: #f1f5f9;
+}
+
+html.light .border-slate-800,
+html.light .border-slate-800\/80,
+html.light .border-slate-700,
+html.light .border-slate-700\/80,
+html.light .border-slate-700\/60 {
+  border-color: #e2e8f0;
+}
+
+html.light .bg-slate-800,
+html.light .bg-slate-800\/50,
+html.light .bg-slate-800\/40,
+html.light .bg-slate-800\/80 {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+html.light .hover\:bg-slate-800:hover,
+html.light .hover\:bg-slate-700:hover,
+html.light .hover\:bg-obsidian-800\/60:hover {
+  background-color: #cbd5e1;
+}
+
+html.light .bg-obsidian-950\/80 {
+  background-color: rgba(238, 241, 247, 0.85);
+}
+
+html.light .bg-indigo-600,
+html.light .bg-gradient-to-r.from-indigo-600,
+html.light button.bg-indigo-600 {
+  color: #fff;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(11, 13, 18, 0.5);
+  background: var(--scroll-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(61, 72, 98, 0.5);
+  background: var(--scroll-thumb);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.8);
+  background: var(--brand-accent);
 }

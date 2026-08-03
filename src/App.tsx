@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Navigation } from './components/Navigation';
+import { AppHeader } from './components/AppHeader';
 import { FloatingAIAdvisorPanel } from './components/FloatingAIAdvisorPanel';
 import { WidgetWorkspace } from './components/WidgetWorkspace';
 import { ProductExecutionHeatmap } from './components/ProductExecutionHeatmap';
@@ -10,10 +11,8 @@ import { AppLauncher } from './components/AppLauncher';
 import { PriorityAlertsView } from './components/PriorityAlertsView';
 import { KnowledgeBaseView } from './components/KnowledgeBaseView';
 import { AILeadershipCloneView } from './components/AILeadershipCloneView';
-import { SettingsModal } from './components/SettingsModal';
 import { SettingsView } from './components/SettingsView';
 import { CommandPalette } from './components/CommandPalette';
-import { WidgetCustomizer } from './components/WidgetCustomizer';
 
 import {
   TabType,
@@ -30,19 +29,24 @@ import {
   WorkspacePreset,
   WidgetConfig,
   ViewMode,
+  SidebarNavId,
 } from './types';
+import { normalizeSidebarNavOrder, syncWidgetsToNavOrder } from './services/navOrder';
 
 import { storageService } from './services/storageService';
 import { generateChiefOfStaffSummary } from './services/chiefOfStaffEngine';
 import { MOCK_PRODUCT_LINES } from './services/mockData';
+import { applyThemePreference, subscribeSystemTheme } from './services/themeService';
+import { applyBranding } from './services/brandingService';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<TabType>('command-center');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
-  const [isWidgetCustomizerOpen, setIsWidgetCustomizerOpen] = useState(false);
+  const [settingsSubTab, setSettingsSubTab] = useState<
+    'general' | 'workspace' | 'skills' | 'connectors' | 'ai-models' | 'claude-md' | 'system' | undefined
+  >(undefined);
+  const [aiMinimized, setAiMinimized] = useState(false);
 
-  // Application Data States
   const [settings, setSettings] = useState<AppSettings>(storageService.getSettings());
   const [viewMode, setViewMode] = useState<ViewMode>(settings.viewMode || 'grid');
   const [calendar, setCalendar] = useState<CalendarEvent[]>(storageService.getCalendar());
@@ -54,11 +58,61 @@ export function App() {
   const [knowledgeEntries, setKnowledgeEntries] = useState<KnowledgeEntry[]>(storageService.getKnowledgeEntries());
   const [personaRules, setPersonaRules] = useState<LeadershipPersonaRule[]>(storageService.getPersonaRules());
   const [products, setProducts] = useState<ProductLine[]>(MOCK_PRODUCT_LINES);
+  /** Always-current settings for system-theme listener (avoids stale branding closure). */
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
-  // Handlers
+  // Apply theme + branding whenever personalization tokens change.
+  useEffect(() => {
+    applyThemePreference(settings.theme || 'system');
+    applyBranding(settings);
+  }, [
+    settings.theme,
+    settings.brandPreset,
+    settings.accentColor,
+    settings.accentSecondary,
+    settings.primaryFontColor,
+    settings.secondaryFontColor,
+    settings.primaryContrastColor,
+    settings.secondaryContrastColor,
+    settings.brandGradientType,
+    settings.brandGradientAngle,
+    settings.brandGradientStops,
+    settings.brandIntensity,
+    settings.useBrandGradient,
+    settings.fontPreset,
+  ]);
+
+  // Subscribe to OS theme only while preference is "system"; always unsubscribe on cleanup.
+  useEffect(() => {
+    if ((settings.theme || 'system') !== 'system') return;
+    return subscribeSystemTheme(() => {
+      applyThemePreference('system');
+      applyBranding(settingsRef.current);
+    });
+  }, [settings.theme]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   const handleSaveSettings = (newSettings: AppSettings) => {
     setSettings(newSettings);
     storageService.saveSettings(newSettings);
+    applyThemePreference(newSettings.theme || 'system');
+    applyBranding(newSettings);
+  };
+
+  const handleToggleSidebar = () => {
+    const updated = { ...settings, sidebarCollapsed: !settings.sidebarCollapsed };
+    handleSaveSettings(updated);
   };
 
   const handleToggleViewMode = (mode: ViewMode) => {
@@ -69,7 +123,28 @@ export function App() {
   };
 
   const handleUpdateWidgets = (newWidgets: WidgetConfig[]) => {
-    const updatedSettings = { ...settings, widgets: newWidgets };
+    // Keep panel stack aligned with the single module order when visibility changes.
+    const synced = syncWidgetsToNavOrder(newWidgets, settings.sidebarNavOrder);
+    const updatedSettings = {
+      ...settings,
+      widgets: synced,
+      activePreset: 'custom' as WorkspacePreset,
+    };
+    setSettings(updatedSettings);
+    storageService.saveSettings(updatedSettings);
+  };
+
+  /** One reorder path: left rail + Command Center panels stay in sync. */
+  const handleReorderModules = (order: SidebarNavId[]) => {
+    const navOrder = normalizeSidebarNavOrder(order);
+    const syncedWidgets = syncWidgetsToNavOrder(settings.widgets, navOrder);
+    const updatedSettings = {
+      ...settings,
+      sidebarNavOrder: navOrder,
+      widgets: syncedWidgets,
+      // Diverging from a named workspace layout → mark preset custom.
+      activePreset: 'custom' as WorkspacePreset,
+    };
     setSettings(updatedSettings);
     storageService.saveSettings(updatedSettings);
   };
@@ -95,6 +170,8 @@ export function App() {
       newWidgets = newWidgets.map((w) => ({ ...w, enabled: true }));
     }
 
+    // Presets change visibility only; keep the shared module order.
+    newWidgets = syncWidgetsToNavOrder(newWidgets, settings.sidebarNavOrder);
     const updatedSettings = { ...settings, activePreset: preset, widgets: newWidgets };
     setSettings(updatedSettings);
     storageService.saveSettings(updatedSettings);
@@ -162,9 +239,12 @@ export function App() {
     storageService.saveKnowledgeEntries(updated);
   };
 
-  const handleResetMockData = () => {
-    storageService.resetAllToMock();
-    setSettings(storageService.getSettings());
+  const reloadWorkspaceFromStorage = () => {
+    const nextSettings = storageService.getSettings();
+    setSettings(nextSettings);
+    setViewMode(nextSettings.viewMode || 'grid');
+    applyThemePreference(nextSettings.theme || 'system');
+    applyBranding(nextSettings);
     setCalendar(storageService.getCalendar());
     setEmails(storageService.getEmails());
     setNotionActions(storageService.getNotionActions());
@@ -175,122 +255,149 @@ export function App() {
     setPersonaRules(storageService.getPersonaRules());
   };
 
+  const handleResetMockData = () => {
+    storageService.resetAllToMock();
+    reloadWorkspaceFromStorage();
+  };
+
   const chiefOfStaffSummary = generateChiefOfStaffSummary(calendar, emails, notionActions, krispTranscripts);
   const unreadAlertsCount = priorityAlerts.filter((a) => !a.handled).length;
 
   return (
-    <div className="min-h-screen bg-obsidian-950 text-slate-100 flex flex-col font-sans relative">
-      {/* Header & Navigation */}
+    <div className="min-h-screen flex font-sans relative" style={{ background: 'var(--app-bg)', color: 'var(--app-fg)' }}>
       <Navigation
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         settings={settings}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        collapsed={Boolean(settings.sidebarCollapsed)}
+        onToggleCollapsed={handleToggleSidebar}
         unreadAlertsCount={unreadAlertsCount}
       />
 
-      {/* Floating AI Advisor Panel (Scrolls with page, dockable Left or Right) */}
-      <FloatingAIAdvisorPanel summary={chiefOfStaffSummary} onNavigateTab={setActiveTab} />
+      <div className="flex-1 min-w-0 flex flex-col">
+        <AppHeader
+          settings={settings}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          aiMinimized={aiMinimized}
+          onExpandAi={() => setAiMinimized(false)}
+        />
 
-      {/* Main Content Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
-        {activeTab === 'command-center' && (
-          <WidgetWorkspace
-            widgets={settings.widgets}
-            activePreset={settings.activePreset}
-            viewMode={viewMode}
-            onToggleViewMode={handleToggleViewMode}
-            onSelectPreset={handleSelectPreset}
-            onOpenCustomizer={() => setIsWidgetCustomizerOpen(true)}
-            products={products}
-            chiefSummary={chiefOfStaffSummary}
-            calendar={calendar}
-            emails={emails}
-            notion={notionActions}
-            krisp={krispTranscripts}
-            apps={appShortcuts}
-            alerts={priorityAlerts}
-            kb={knowledgeEntries}
-            personaRules={personaRules}
-            userName={settings.userName}
-            onNavigateTab={setActiveTab}
-            onToggleEmailFlag={handleToggleEmailFlag}
-            onMarkRead={handleMarkEmailRead}
-            onAddNotionAction={handleAddNotionAction}
-            onToggleNotionStatus={handleToggleNotionStatus}
-            onAddKrispTranscript={handleAddKrispTranscript}
-            onAddShortcut={handleAddAppShortcut}
-            onLaunchShortcut={handleLaunchShortcut}
-            onTogglePinApp={handleTogglePinApp}
-            onToggleAlertHandled={handleToggleAlertHandled}
-            onAddKnowledgeEntry={handleAddKnowledgeEntry}
-          />
-        )}
+        <FloatingAIAdvisorPanel
+          summary={chiefOfStaffSummary}
+          onNavigateTab={setActiveTab}
+          sidebarWidth={settings.sidebarCollapsed ? 72 : 260}
+          chiefOfStaffName={settings.chiefOfStaffName || 'Atlas'}
+          markDataUrl={settings.markDataUrl}
+          isMinimized={aiMinimized}
+          onMinimizedChange={setAiMinimized}
+        />
 
-        {activeTab === 'product-portfolio' && (
-          <ProductExecutionHeatmap products={products} onNavigateTab={setActiveTab} />
-        )}
-
-        {activeTab === 'chief-of-staff' && (
-          <ChiefOfStaffView summary={chiefOfStaffSummary} onNavigateTab={setActiveTab} />
-        )}
-
-        {activeTab === 'outlook' && (
-          <OutlookView
-            calendar={calendar}
-            emails={emails}
-            onToggleEmailFlag={handleToggleEmailFlag}
-            onMarkRead={handleMarkEmailRead}
-          />
-        )}
-
-        {activeTab === 'notion-krisp' && (
-          <NotionKrispView
-            notionActions={notionActions}
-            krispTranscripts={krispTranscripts}
-            onAddNotionAction={handleAddNotionAction}
-            onAddKrispTranscript={handleAddKrispTranscript}
-            onToggleNotionStatus={handleToggleNotionStatus}
-          />
-        )}
-
-        {activeTab === 'app-launcher' && (
-          <AppLauncher
-            shortcuts={appShortcuts}
-            viewMode={viewMode}
-            onToggleViewMode={handleToggleViewMode}
-            onAddShortcut={handleAddAppShortcut}
-            onLaunchShortcut={handleLaunchShortcut}
-            onTogglePin={handleTogglePinApp}
-          />
-        )}
-
-        {activeTab === 'priority-alerts' && (
-          <PriorityAlertsView alerts={priorityAlerts} onToggleHandled={handleToggleAlertHandled} />
-        )}
-
-        {activeTab === 'knowledge-clone' && (
-          <div className="space-y-6">
-            <KnowledgeBaseView entries={knowledgeEntries} onAddEntry={handleAddKnowledgeEntry} />
-            <AILeadershipCloneView
-              entries={knowledgeEntries}
+        <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+          {activeTab === 'command-center' && (
+            <WidgetWorkspace
+              widgets={settings.widgets}
+              activePreset={settings.activePreset}
+              viewMode={viewMode}
+              onToggleViewMode={handleToggleViewMode}
+              onSelectPreset={handleSelectPreset}
+              onOpenLayoutSettings={() => {
+                setSettingsSubTab('workspace');
+                setActiveTab('settings');
+              }}
+              products={products}
+              chiefSummary={chiefOfStaffSummary}
+              calendar={calendar}
+              emails={emails}
+              notion={notionActions}
+              krisp={krispTranscripts}
+              apps={appShortcuts}
+              alerts={priorityAlerts}
+              kb={knowledgeEntries}
               personaRules={personaRules}
               userName={settings.userName}
+              workspaceName={settings.workspaceName || 'Command Center'}
+              onNavigateTab={setActiveTab}
+              onToggleEmailFlag={handleToggleEmailFlag}
+              onMarkRead={handleMarkEmailRead}
+              onAddNotionAction={handleAddNotionAction}
+              onToggleNotionStatus={handleToggleNotionStatus}
+              onAddKrispTranscript={handleAddKrispTranscript}
+              onAddShortcut={handleAddAppShortcut}
+              onLaunchShortcut={handleLaunchShortcut}
+              onTogglePinApp={handleTogglePinApp}
+              onToggleAlertHandled={handleToggleAlertHandled}
+              onAddKnowledgeEntry={handleAddKnowledgeEntry}
             />
-          </div>
-        )}
+          )}
 
-        {activeTab === 'settings' && (
-          <SettingsView
-            settings={settings}
-            onSaveSettings={handleSaveSettings}
-            onResetMockData={handleResetMockData}
-          />
-        )}
-      </main>
+          {activeTab === 'product-portfolio' && (
+            <ProductExecutionHeatmap products={products} onNavigateTab={setActiveTab} />
+          )}
 
-      {/* Command Palette (Ctrl+K) */}
+          {activeTab === 'chief-of-staff' && (
+            <ChiefOfStaffView summary={chiefOfStaffSummary} onNavigateTab={setActiveTab} />
+          )}
+
+          {activeTab === 'outlook' && (
+            <OutlookView
+              calendar={calendar}
+              emails={emails}
+              onToggleEmailFlag={handleToggleEmailFlag}
+              onMarkRead={handleMarkEmailRead}
+            />
+          )}
+
+          {activeTab === 'notion-krisp' && (
+            <NotionKrispView
+              notionActions={notionActions}
+              krispTranscripts={krispTranscripts}
+              onAddNotionAction={handleAddNotionAction}
+              onAddKrispTranscript={handleAddKrispTranscript}
+              onToggleNotionStatus={handleToggleNotionStatus}
+            />
+          )}
+
+          {activeTab === 'app-launcher' && (
+            <AppLauncher
+              shortcuts={appShortcuts}
+              viewMode={viewMode}
+              onToggleViewMode={handleToggleViewMode}
+              onAddShortcut={handleAddAppShortcut}
+              onLaunchShortcut={handleLaunchShortcut}
+              onTogglePin={handleTogglePinApp}
+            />
+          )}
+
+          {activeTab === 'priority-alerts' && (
+            <PriorityAlertsView alerts={priorityAlerts} onToggleHandled={handleToggleAlertHandled} />
+          )}
+
+          {activeTab === 'knowledge-clone' && (
+            <div className="space-y-6">
+              <KnowledgeBaseView entries={knowledgeEntries} onAddEntry={handleAddKnowledgeEntry} />
+              <AILeadershipCloneView
+                entries={knowledgeEntries}
+                personaRules={personaRules}
+                userName={settings.userName}
+              />
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <SettingsView
+              settings={settings}
+              onSaveSettings={handleSaveSettings}
+              onResetMockData={handleResetMockData}
+              onReloadWorkspace={reloadWorkspaceFromStorage}
+              onUpdateWidgets={handleUpdateWidgets}
+              onReorderModules={handleReorderModules}
+              onSelectPreset={handleSelectPreset}
+              initialSubTab={settingsSubTab}
+            />
+          )}
+        </main>
+      </div>
+
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
@@ -301,25 +408,6 @@ export function App() {
         apps={appShortcuts}
         kb={knowledgeEntries}
         onNavigateTab={setActiveTab}
-      />
-
-      {/* Widget Customizer Modal */}
-      <WidgetCustomizer
-        isOpen={isWidgetCustomizerOpen}
-        onClose={() => setIsWidgetCustomizerOpen(false)}
-        widgets={settings.widgets}
-        activePreset={settings.activePreset}
-        onUpdateWidgets={handleUpdateWidgets}
-        onSelectPreset={handleSelectPreset}
-      />
-
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        onSaveSettings={handleSaveSettings}
-        onResetMockData={handleResetMockData}
       />
     </div>
   );
