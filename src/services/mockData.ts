@@ -14,6 +14,8 @@ import {
   CustomSkill,
 } from '../types';
 import { DEFAULT_SIDEBAR_NAV_ORDER } from './navOrder';
+import { INITIAL_CONNECTORS_CATALOG } from './connectorsCatalog';
+import { normalizeConnectorsCatalog } from './connectorApproaches';
 
 export const INITIAL_WIDGETS: WidgetConfig[] = [
   { id: 'w-heatmap', title: 'Product Portfolio Heatmap', description: 'Launch readiness & sprint velocity across products', category: 'Execution', enabled: true, order: 1, size: 'full' },
@@ -34,6 +36,7 @@ export const INITIAL_AI_PROVIDERS: AIProviderConfig[] = [
     selectedModel: 'llama3.3:70b',
     isDefault: true,
     connected: true,
+    tier: 'local',
   },
   {
     id: 'prov-2',
@@ -42,6 +45,7 @@ export const INITIAL_AI_PROVIDERS: AIProviderConfig[] = [
     selectedModel: 'qwen2.5-coder-32b',
     isDefault: false,
     connected: true,
+    tier: 'local',
   },
   {
     id: 'prov-3',
@@ -50,6 +54,7 @@ export const INITIAL_AI_PROVIDERS: AIProviderConfig[] = [
     selectedModel: 'claude-3-7-sonnet-latest',
     isDefault: false,
     connected: false,
+    tier: 'paid',
   },
   {
     id: 'prov-4',
@@ -58,6 +63,7 @@ export const INITIAL_AI_PROVIDERS: AIProviderConfig[] = [
     selectedModel: 'gpt-4o',
     isDefault: false,
     connected: false,
+    tier: 'paid',
   },
 ];
 
@@ -159,10 +165,10 @@ export const INITIAL_SETTINGS: AppSettings = {
   autoStartOnBoot: true,
   outlookClientId: 'ms-graph-client-id-sample',
   outlookConnected: true,
-  notionApiKey: 'secret_notion_sample_key',
-  notionDatabaseId: 'db_notion_actions_sample',
-  notionConnected: true,
-  krispAutoSync: true,
+  notionApiKey: '',
+  notionDatabaseId: '',
+  notionConnected: false,
+  krispAutoSync: false,
   customLlmEndpoint: 'http://localhost:11434',
   customLlmApiKey: '',
   useMockData: true,
@@ -174,33 +180,34 @@ export const INITIAL_SETTINGS: AppSettings = {
   logoDataUrl: '',
   markDataUrl: '',
   personalTouch: '',
-  brandPreset: 'indigo',
-  accentColor: '#6366F1',
-  accentSecondary: '#9333EA',
-  primaryContrastColor: '#FFFFFF',
-  primaryFontColor: '#818CF8',
+  brandPreset: 'executive',
+  accentColor: '#FDA700',
+  accentSecondary: '#02295B',
+  primaryContrastColor: '#02295B',
+  primaryFontColor: '#02295B',
   primaryFontLinked: true,
-  secondaryContrastColor: '#FFFFFF',
-  secondaryFontColor: '#C084FC',
+  secondaryContrastColor: '#D6D6D6',
+  secondaryFontColor: '#333F3F',
   secondaryFontLinked: true,
   brandGradientType: 'linear',
   brandGradientAngle: 135,
   brandGradientStops: [
-    { id: 'stop-start', color: '#6366F1', position: 0, alpha: 100 },
-    { id: 'stop-end', color: '#9333EA', position: 100, alpha: 100 },
+    { id: 'stop-start', color: '#FDA700', position: 0, alpha: 100 },
+    { id: 'stop-end', color: '#02295B', position: 100, alpha: 100 },
   ],
   brandIntensity: 'balanced',
   useBrandGradient: true,
   fontPreset: 'inter-outfit',
   activePreset: 'execution',
   widgets: INITIAL_WIDGETS,
-  viewMode: 'grid',
-  theme: 'system',
+  viewMode: 'list',
+  theme: 'light',
   sidebarCollapsed: false,
   sidebarNavOrder: [...DEFAULT_SIDEBAR_NAV_ORDER],
   claudeMdContent: INITIAL_CLAUDE_MD,
   aiProviders: INITIAL_AI_PROVIDERS,
   customSkills: INITIAL_CUSTOM_SKILLS,
+  connectors: normalizeConnectorsCatalog(undefined, INITIAL_CONNECTORS_CATALOG),
 };
 
 export const MOCK_CALENDAR: CalendarEvent[] = [

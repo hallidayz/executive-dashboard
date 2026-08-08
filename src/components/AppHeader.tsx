@@ -41,7 +41,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         ) : null}
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="font-bold text-base tracking-tight text-[var(--app-fg)] font-sans truncate">
+            <h1 className="font-bold text-base tracking-tight font-sans truncate" style={{ color: 'var(--text-heading)' }}>
               {workspaceName}
             </h1>
             {tagline && (

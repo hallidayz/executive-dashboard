@@ -7,7 +7,7 @@ export type WorkspacePreset = 'execution' | 'meeting' | 'strategy' | 'custom';
 export type ViewMode = 'grid' | 'list';
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type BrandIntensity = 'soft' | 'balanced' | 'bold';
-export type BrandPresetId = 'indigo' | 'ocean' | 'forest' | 'sunset' | 'slate' | 'custom';
+export type BrandPresetId = 'executive' | 'indigo' | 'ocean' | 'forest' | 'sunset' | 'slate' | 'custom';
 export type FontPresetId = 'inter-outfit' | 'dm-fraunces' | 'source' | 'plex' | 'system';
 export type BrandGradientType = 'linear' | 'radial';
 
@@ -47,10 +47,21 @@ export interface SystemDiscoveredSkill {
 export interface ConnectorItem {
   id: string;
   name: string;
-  ecosystem: 'Microsoft' | 'Claude' | 'ChatGPT' | 'Google' | 'n8n' | 'Enterprise SaaS' | 'Developer & Data' | 'Custom';
+  ecosystem:
+    | 'Microsoft'
+    | 'Claude'
+    | 'ChatGPT'
+    | 'Google'
+    | 'n8n'
+    | 'Enterprise SaaS'
+    | 'Developer & Data'
+    | 'Custom'
+    | 'iPaaS'
+    | 'MCP'
+    | 'AI Assistant';
   icon: string;
   description: string;
-  authType: 'IDP_OAUTH' | 'API_KEY' | 'WEBHOOK';
+  authType: 'IDP_OAUTH' | 'API_KEY' | 'WEBHOOK' | 'MCP';
   status: 'Connected' | 'Not Connected';
   isVettedLegal: boolean;
   complianceCert: string;
@@ -58,7 +69,35 @@ export interface ConnectorItem {
   fieldsRequired: { key: string; label: string; placeholder: string; isSecret?: boolean }[];
   connectedUser?: string;
   lastSynced?: string;
+  /** How this connector is wired (see connectorApproaches.ts). */
+  approach: ConnectorApproach;
+  /** Which workspace surface this tool powers when Connected. */
+  surfaceRole?: ConnectorSurfaceRole;
+  startsAutonomously?: boolean;
+  multiAppInOneMotion?: boolean;
+  setupBurden?: 'low' | 'medium' | 'high';
+  /** User-filled field values from the connect wizard. */
+  configValues?: Record<string, string>;
 }
+
+/** Integration wiring model — drives Settings + Tools workspace. */
+export type ConnectorApproach =
+  | 'native_vendor'
+  | 'mcp'
+  | 'ipaas'
+  | 'ai_assistant'
+  | 'direct_api';
+
+/** Workspace pane this connector can drive when connected. */
+export type ConnectorSurfaceRole =
+  | 'actions'
+  | 'transcripts'
+  | 'calendar'
+  | 'automation'
+  | 'assistant'
+  | 'data'
+  | 'messaging'
+  | 'generic';
 
 export interface AutoConnectorSpec {
   id: string;
@@ -97,12 +136,16 @@ export interface CustomAppSpec {
 
 export interface AIProviderConfig {
   id: string;
-  provider: 'Ollama (Local)' | 'LM Studio (Local)' | 'Anthropic Claude' | 'OpenAI' | 'Google Gemini' | 'Custom Local GPU';
+  /** Display name — local engines, paid APIs, or curated free gateways */
+  provider: string;
   endpoint: string;
   apiKey?: string;
   selectedModel: string;
   isDefault: boolean;
   connected: boolean;
+  /** Set when connected from the free-tier catalog */
+  freeSourceId?: string;
+  tier?: 'local' | 'paid' | 'free';
 }
 
 export interface ProductLine {

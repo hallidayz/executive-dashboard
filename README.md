@@ -1,4 +1,31 @@
-# React + TypeScript + Vite
+# Executive Chief of Staff Dashboard
+
+React + TypeScript + Vite app with an optional Electron shell.
+
+## Design system
+
+**Source of truth:** [`halliday-brand-guide/`](halliday-brand-guide/)
+
+Default brand preset is **Halliday Corporate** (`brandPreset: 'executive'`):
+
+| Role | HEX |
+|------|-----|
+| Navy | `#02295B` |
+| Gold (CTAs ~10%) | `#FDA700` |
+| Canvas (~60%) | `#D6D6D6` |
+| Charcoal (body) | `#333F3F` |
+| Silver (borders) | `#B0B5B3` |
+| Muted (cards) | `#D8D8D6` |
+
+Status (critical / warning / success) stays red / amber / green and is never remapped by brand personalization.
+
+Validate tokens:
+
+```bash
+node halliday-brand-guide/scripts/validate-colors.cjs
+```
+
+## Stack notes
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
@@ -29,4 +56,4 @@ If you are developing a production application, we recommend enabling type-aware
 }
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for more.

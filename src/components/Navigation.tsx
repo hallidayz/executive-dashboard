@@ -71,7 +71,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       },
       'notion-krisp': {
         id: 'notion-krisp',
-        label: 'Notion & Krisp',
+        label: 'Tools & Connectors',
         icon: NAV_ICONS['notion-krisp'],
       },
       'app-launcher': {
@@ -121,29 +121,30 @@ export const Navigation: React.FC<NavigationProps> = ({
             style={{ borderColor: 'var(--app-border)' }}
           />
         ) : (
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-amber-500 p-0.5 shadow-glow-indigo flex items-center justify-center shrink-0">
-            <div className="w-full h-full rounded-[10px] flex items-center justify-center bg-[var(--app-bg)]">
-              <Shield className="w-4 h-4 text-indigo-400" />
+          <div className="w-9 h-9 rounded-xl brand-gradient p-0.5 brand-ring flex items-center justify-center shrink-0">
+            <div className="w-full h-full rounded-[10px] flex items-center justify-center bg-[var(--sidebar-bg)]">
+              <Shield className="w-4 h-4" style={{ color: 'var(--brand-accent)' }} />
             </div>
           </div>
         )}
         {!collapsed && (
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold truncate text-[var(--app-fg)]">
+            <p className="text-xs font-bold truncate" style={{ color: 'var(--sidebar-fg)' }}>
               {settings.workspaceName || 'Command Center'}
             </p>
             <p className="text-[10px] truncate">
-              <span className="brand-text-secondary font-semibold">
+              <span className="font-semibold" style={{ color: 'var(--brand-accent)' }}>
                 {settings.chiefOfStaffName || 'Atlas'}
               </span>
-              <span className="text-[var(--app-muted)]"> · {settings.userName}</span>
+              <span style={{ color: 'var(--sidebar-muted)' }}> · {settings.userName}</span>
             </p>
           </div>
         )}
         <button
           type="button"
           onClick={onToggleCollapsed}
-          className="p-1.5 rounded-lg text-[var(--app-muted)] hover:text-[var(--app-fg)] hover:bg-slate-800/40 transition-colors shrink-0"
+          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0"
+          style={{ color: 'var(--sidebar-muted)' }}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
@@ -163,9 +164,14 @@ export const Navigation: React.FC<NavigationProps> = ({
                 collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
               } ${
                 isActive
-                  ? 'brand-gradient shadow-md brand-ring'
-                  : 'text-[var(--app-muted)] hover:text-[var(--app-fg)] hover:bg-slate-800/40'
+                  ? 'brand-button shadow-md brand-ring'
+                  : 'hover:bg-white/10'
               }`}
+              style={
+                isActive
+                  ? { color: 'var(--brand-on-accent)' }
+                  : { color: 'var(--sidebar-muted)' }
+              }
             >
               <span
                 className="shrink-0"
@@ -195,9 +201,12 @@ export const Navigation: React.FC<NavigationProps> = ({
         })}
       </nav>
 
-      <div className="p-2 border-t" style={{ borderColor: 'var(--app-border)' }}>
+      <div className="p-2 border-t" style={{ borderColor: 'rgba(214,214,214,0.2)' }}>
         {!collapsed && (
-          <p className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-wider brand-text-secondary">
+          <p
+            className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-wider"
+            style={{ color: 'var(--brand-accent)' }}
+          >
             Configuration
           </p>
         )}
@@ -209,18 +218,20 @@ export const Navigation: React.FC<NavigationProps> = ({
             collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
           } ${
             settingsActive
-              ? 'brand-secondary-fill shadow-md'
-              : 'text-[var(--app-muted)] hover:text-[var(--app-fg)] hover:bg-slate-800/40 border border-transparent'
+              ? 'brand-button shadow-md brand-ring'
+              : 'hover:bg-white/10 border border-transparent'
           }`}
           style={
-            settingsActive ? { color: 'var(--brand-on-secondary)' } : undefined
+            settingsActive
+              ? { color: 'var(--brand-on-accent)' }
+              : { color: 'var(--sidebar-muted)' }
           }
         >
           <Settings className="w-4 h-4 shrink-0" />
           {!collapsed && <span className="truncate">Settings & Config</span>}
         </button>
         {!collapsed && (
-          <p className="px-2 pt-2 text-[10px] text-[var(--app-muted)] leading-snug">
+          <p className="px-2 pt-2 text-[10px] leading-snug" style={{ color: 'var(--sidebar-muted)' }}>
             Personalization, workspace layout, skills, AI models, and system preferences.
           </p>
         )}

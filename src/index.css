@@ -1,6 +1,33 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+/* ── Design system core palette (halliday-brand-guide/) ───── */
+:root {
+  /* Core Palette */
+  --color-primary-navy: #02295b;
+  --color-primary-gold: #fda700;
+  --color-primary-canvas: #d6d6d6;
+
+  /* Secondary & Neutral Palette */
+  --color-secondary-charcoal: #333f3f;
+  --color-secondary-silver: #b0b5b3;
+  --color-secondary-muted-fill: #d8d8d6;
+
+  /* Functional UI Mappings (light-first defaults) */
+  --bg-page: var(--color-primary-canvas);
+  --bg-section-alt: var(--color-secondary-muted-fill);
+  --text-heading: var(--color-primary-navy);
+  --text-body: var(--color-secondary-charcoal);
+  --text-muted: var(--color-secondary-silver);
+  --border-subtle: var(--color-secondary-silver);
+  --accent-cta: var(--color-primary-gold);
+
+  /* Semantic status — NEVER remapped by brand personalization */
+  --status-critical: #e11d48;
+  --status-warning: #f59e0b;
+  --status-success: #059669;
+}
+
 /* ── Theme tokens ─────────────────────────────────────────── */
 :root,
 html.dark {
@@ -12,45 +39,53 @@ html.dark {
   --glass-panel: rgba(17, 20, 29, 0.9);
   --glass-card: rgba(22, 27, 39, 0.75);
   --glass-input: rgba(11, 13, 18, 0.85);
-  --sidebar-bg: rgba(17, 20, 29, 0.96);
-  --header-bg: rgba(17, 20, 29, 0.88);
+  --sidebar-bg: #02295b;
+  --sidebar-fg: #d6d6d6;
+  --sidebar-muted: rgba(214, 214, 214, 0.7);
+  --header-bg: rgba(2, 41, 91, 0.92);
   --scroll-track: rgba(11, 13, 18, 0.5);
   --scroll-thumb: rgba(61, 72, 98, 0.55);
-  /* Brand tokens (overridden by brandingService) */
-  --brand-accent: #6366f1;
-  --brand-accent-secondary: #9333ea;
-  --brand-font: #818cf8;
-  --brand-font-secondary: #c084fc;
-  --brand-on-accent: #ffffff;
-  --brand-on-secondary: #ffffff;
-  --brand-secondary-border: rgba(147, 51, 234, 0.4);
-  --brand-accent-hover: #818cf8;
-  --brand-accent-pressed: #4f46e5;
-  --brand-accent-soft: rgba(99, 102, 241, 0.16);
-  --brand-accent-soft-strong: rgba(99, 102, 241, 0.26);
-  --brand-accent-border: rgba(99, 102, 241, 0.4);
-  --brand-secondary-soft: rgba(147, 51, 234, 0.16);
-  --brand-glow: rgba(99, 102, 241, 0.35);
-  --brand-button: #6366f1;
-  --brand-gradient: linear-gradient(135deg, #6366f1, #9333ea);
-  --brand-gradient-x: linear-gradient(90deg, #6366f1, #9333ea);
+  /* Brand tokens (overridden by brandingService) — Halliday Corporate defaults */
+  --brand-accent: #fda700;
+  --brand-accent-secondary: #02295b;
+  --brand-font: #fda700;
+  --brand-font-secondary: #b0b5b3;
+  --brand-on-accent: #02295b;
+  --brand-on-secondary: #d6d6d6;
+  --brand-secondary-border: rgba(2, 41, 91, 0.45);
+  --brand-accent-hover: #ffb82e;
+  --brand-accent-pressed: #d48c00;
+  --brand-accent-soft: rgba(253, 167, 0, 0.16);
+  --brand-accent-soft-strong: rgba(253, 167, 0, 0.26);
+  --brand-accent-border: rgba(253, 167, 0, 0.45);
+  --brand-secondary-soft: rgba(2, 41, 91, 0.35);
+  --brand-glow: rgba(253, 167, 0, 0.35);
+  --brand-button: #fda700;
+  --brand-gradient: linear-gradient(135deg, #fda700, #02295b);
+  --brand-gradient-x: linear-gradient(90deg, #fda700, #02295b);
   --font-body: 'Inter', system-ui, -apple-system, sans-serif;
   --font-display: 'Outfit', 'Inter', system-ui, sans-serif;
 }
 
 html.light {
   color-scheme: light;
-  --app-bg: #eef1f7;
-  --app-fg: #0f172a;
-  --app-muted: #64748b;
-  --app-border: rgba(15, 23, 42, 0.1);
-  --glass-panel: rgba(255, 255, 255, 0.92);
-  --glass-card: rgba(255, 255, 255, 0.88);
-  --glass-input: rgba(255, 255, 255, 0.95);
-  --sidebar-bg: rgba(255, 255, 255, 0.96);
-  --header-bg: rgba(255, 255, 255, 0.9);
-  --scroll-track: rgba(226, 232, 240, 0.8);
-  --scroll-thumb: rgba(148, 163, 184, 0.7);
+  --app-bg: var(--color-primary-canvas);
+  --app-fg: var(--color-secondary-charcoal);
+  --app-muted: var(--color-secondary-silver);
+  --app-border: color-mix(in srgb, var(--color-secondary-silver) 55%, transparent);
+  --glass-panel: color-mix(in srgb, #ffffff 55%, var(--color-secondary-muted-fill));
+  --glass-card: color-mix(in srgb, #ffffff 45%, var(--color-secondary-muted-fill));
+  --glass-input: #ffffff;
+  --sidebar-bg: var(--color-primary-navy);
+  --sidebar-fg: var(--color-primary-canvas);
+  --sidebar-muted: color-mix(in srgb, var(--color-primary-canvas) 70%, transparent);
+  --header-bg: color-mix(in srgb, #ffffff 90%, var(--color-primary-canvas));
+  --scroll-track: var(--color-secondary-muted-fill);
+  --scroll-thumb: var(--color-secondary-silver);
+  --brand-font: var(--color-primary-navy);
+  --brand-font-secondary: var(--color-secondary-charcoal);
+  --brand-on-accent: var(--color-primary-navy);
+  --brand-on-secondary: var(--color-primary-canvas);
 }
 
 @layer base {
@@ -63,6 +98,7 @@ html.light {
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
+    color: var(--text-heading);
   }
 
   button, input, select, textarea {
@@ -167,14 +203,17 @@ html.light {
 }
 
 /*
- * Global remaps: when personalization is applied, hardcoded indigo/purple
+ * Global remaps: when personalization is applied, hardcoded indigo/purple/cyan
  * Tailwind utilities used across views follow the brand tokens.
+ * (Cyan was the Outlook hub identity color — must follow Personalization.)
  */
 html[data-brand-applied='true'] .bg-indigo-600,
 html[data-brand-applied='true'] .bg-indigo-500,
 html[data-brand-applied='true'] .bg-purple-600,
 html[data-brand-applied='true'] .bg-purple-500,
-html[data-brand-applied='true'] .bg-violet-600 {
+html[data-brand-applied='true'] .bg-violet-600,
+html[data-brand-applied='true'] .bg-cyan-600,
+html[data-brand-applied='true'] .bg-cyan-500 {
   background-color: var(--brand-accent) !important;
   color: var(--brand-on-accent) !important;
 }
@@ -182,6 +221,8 @@ html[data-brand-applied='true'] .bg-violet-600 {
 html[data-brand-applied='true'] .hover\:bg-indigo-500:hover,
 html[data-brand-applied='true'] .hover\:bg-indigo-600:hover,
 html[data-brand-applied='true'] .hover\:from-purple-500:hover,
+html[data-brand-applied='true'] .hover\:to-indigo-500:hover,
+html[data-brand-applied='true'] .hover\:from-cyan-500:hover,
 html[data-brand-applied='true'] .hover\:to-indigo-500:hover {
   background-color: var(--brand-accent-hover) !important;
 }
@@ -190,7 +231,9 @@ html[data-brand-applied='true'] .bg-indigo-500\/10,
 html[data-brand-applied='true'] .bg-indigo-500\/15,
 html[data-brand-applied='true'] .bg-indigo-500\/20,
 html[data-brand-applied='true'] .bg-indigo-600\/20,
-html[data-brand-applied='true'] .bg-indigo-600\/30 {
+html[data-brand-applied='true'] .bg-indigo-600\/30,
+html[data-brand-applied='true'] .bg-cyan-500\/20,
+html[data-brand-applied='true'] .bg-cyan-950\/20 {
   background-color: var(--brand-accent-soft) !important;
 }
 
@@ -205,7 +248,9 @@ html[data-brand-applied='true'] .bg-indigo-950\/90,
 html[data-brand-applied='true'] .via-indigo-950\/60,
 html[data-brand-applied='true'] .to-purple-950\/60,
 html[data-brand-applied='true'] .from-indigo-950\/80,
-html[data-brand-applied='true'] .to-purple-950\/80 {
+html[data-brand-applied='true'] .to-purple-950\/80,
+html[data-brand-applied='true'] .via-cyan-950\/40,
+html[data-brand-applied='true'] .to-indigo-950\/40 {
   background-color: var(--brand-accent-soft) !important;
 }
 
@@ -216,7 +261,11 @@ html[data-brand-applied='true'] .text-indigo-400,
 html[data-brand-applied='true'] .text-indigo-500,
 html[data-brand-applied='true'] .text-violet-300,
 html[data-brand-applied='true'] .text-violet-400,
-html[data-brand-applied='true'] .text-violet-500 {
+html[data-brand-applied='true'] .text-violet-500,
+html[data-brand-applied='true'] .text-cyan-200,
+html[data-brand-applied='true'] .text-cyan-300,
+html[data-brand-applied='true'] .text-cyan-400,
+html[data-brand-applied='true'] .text-cyan-500 {
   color: var(--brand-font) !important;
 }
 
@@ -234,13 +283,19 @@ html[data-brand-applied='true'] .border-indigo-500\/50,
 html[data-brand-applied='true'] .border-indigo-400\/30,
 html[data-brand-applied='true'] .border-indigo-400\/40,
 html[data-brand-applied='true'] .border-purple-500\/30,
-html[data-brand-applied='true'] .border-purple-500\/40 {
+html[data-brand-applied='true'] .border-purple-500\/40,
+html[data-brand-applied='true'] .border-cyan-500\/30,
+html[data-brand-applied='true'] .border-cyan-500\/40,
+html[data-brand-applied='true'] .border-cyan-500\/50,
+html[data-brand-applied='true'] .border-cyan-400\/50 {
   border-color: var(--brand-accent-border) !important;
 }
 
 html[data-brand-applied='true'] .from-indigo-600,
 html[data-brand-applied='true'] .from-purple-600,
-html[data-brand-applied='true'] .from-indigo-500 {
+html[data-brand-applied='true'] .from-indigo-500,
+html[data-brand-applied='true'] .from-cyan-600,
+html[data-brand-applied='true'] .from-cyan-500 {
   --tw-gradient-from: var(--brand-accent) !important;
   --tw-gradient-to: color-mix(in srgb, var(--brand-accent) 0%, transparent) !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
@@ -261,14 +316,17 @@ html[data-brand-applied='true'] .via-indigo-600 {
 
 html[data-brand-applied='true'] .bg-gradient-to-r.from-indigo-600,
 html[data-brand-applied='true'] .bg-gradient-to-r.from-purple-600,
-html[data-brand-applied='true'] .bg-gradient-to-tr.from-indigo-600 {
+html[data-brand-applied='true'] .bg-gradient-to-tr.from-indigo-600,
+html[data-brand-applied='true'] .bg-gradient-to-r.from-cyan-600 {
   background-image: var(--brand-gradient-x) !important;
   color: var(--brand-on-accent) !important;
 }
 
 html[data-brand-applied='true'] .shadow-indigo-600\/30,
 html[data-brand-applied='true'] .shadow-purple-600\/30,
-html[data-brand-applied='true'] .shadow-glow-indigo {
+html[data-brand-applied='true'] .shadow-glow-indigo,
+html[data-brand-applied='true'] .shadow-cyan-600\/30,
+html[data-brand-applied='true'] .shadow-glow-cyan {
   --tw-shadow-color: var(--brand-glow) !important;
   box-shadow: 0 10px 25px -8px var(--brand-glow) !important;
 }
@@ -278,9 +336,10 @@ html[data-brand-applied='true'] .focus\:ring-indigo-500:focus {
   --tw-ring-color: var(--brand-accent) !important;
 }
 
-/* Primary CTA buttons that only use solid indigo */
+/* Primary CTA buttons that only use solid indigo/cyan */
 html[data-brand-applied='true'] button.bg-indigo-600,
 html[data-brand-applied='true'] button.bg-purple-600,
+html[data-brand-applied='true'] button.bg-cyan-600,
 html[data-brand-applied='true'] a.bg-indigo-600,
 html[data-brand-applied='true'] label.bg-indigo-600,
 html[data-brand-applied='true'] label.bg-purple-600 {
@@ -297,31 +356,86 @@ html[data-brand-applied='true'] label.hover\:bg-indigo-500:hover {
   background-color: var(--brand-accent-hover) !important;
 }
 
+/*
+ * Semantic status colors are locked. Brand remaps must never retarget these
+ * families for identity chrome (critical=rose/red, warning=amber, success=emerald).
+ * Brand CTAs use --brand-accent (gold) via .brand-button — not amber utilities.
+ */
+html[data-brand-applied='true'] .text-rose-300,
+html[data-brand-applied='true'] .text-rose-400,
+html[data-brand-applied='true'] .text-rose-500 {
+  color: var(--status-critical) !important;
+}
+html[data-brand-applied='true'] .bg-rose-500,
+html[data-brand-applied='true'] .bg-rose-600 {
+  background-color: var(--status-critical) !important;
+}
+html[data-brand-applied='true'] .text-emerald-300,
+html[data-brand-applied='true'] .text-emerald-400,
+html[data-brand-applied='true'] .text-emerald-500 {
+  color: var(--status-success) !important;
+}
+html[data-brand-applied='true'] .bg-emerald-500,
+html[data-brand-applied='true'] .bg-emerald-600 {
+  background-color: var(--status-success) !important;
+  color: #ffffff !important;
+}
+html[data-brand-applied='true'] .text-amber-300,
+html[data-brand-applied='true'] .text-amber-400,
+html[data-brand-applied='true'] .text-amber-500 {
+  color: var(--status-warning) !important;
+}
+
+.status-critical {
+  color: var(--status-critical) !important;
+}
+.status-warning {
+  color: var(--status-warning) !important;
+}
+.status-success {
+  color: var(--status-success) !important;
+}
+.status-critical-bg {
+  background-color: color-mix(in srgb, var(--status-critical) 18%, transparent) !important;
+  border-color: color-mix(in srgb, var(--status-critical) 40%, transparent) !important;
+  color: var(--status-critical) !important;
+}
+.status-warning-bg {
+  background-color: color-mix(in srgb, var(--status-warning) 18%, transparent) !important;
+  border-color: color-mix(in srgb, var(--status-warning) 40%, transparent) !important;
+  color: var(--status-warning) !important;
+}
+.status-success-bg {
+  background-color: color-mix(in srgb, var(--status-success) 18%, transparent) !important;
+  border-color: color-mix(in srgb, var(--status-success) 40%, transparent) !important;
+  color: var(--status-success) !important;
+}
+
 /* Light-mode remaps for hardcoded dark utility classes */
 html.light .text-slate-100,
 html.light .text-slate-200 {
-  color: #0f172a;
+  color: var(--color-primary-navy);
 }
 html.light .text-slate-300 {
-  color: #334155;
+  color: var(--color-secondary-charcoal);
 }
 html.light .text-slate-400,
 html.light .text-slate-500 {
-  color: #64748b;
+  color: var(--color-secondary-silver);
 }
 
 html.light .bg-obsidian-950 {
-  background-color: #eef1f7;
+  background-color: var(--color-secondary-muted-fill);
 }
 html.light .bg-obsidian-900,
 html.light .bg-obsidian-900\/90 {
-  background-color: rgba(255, 255, 255, 0.95);
+  background-color: color-mix(in srgb, #ffffff 92%, var(--color-primary-canvas));
 }
 html.light .bg-obsidian-850,
 html.light .bg-obsidian-800,
 html.light .bg-obsidian-800\/80,
 html.light .bg-obsidian-800\/60 {
-  background-color: #f1f5f9;
+  background-color: var(--color-secondary-muted-fill);
 }
 
 html.light .border-slate-800,

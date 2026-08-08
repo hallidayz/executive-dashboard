@@ -17,7 +17,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     title: 'Executive Chief of Staff Dashboard',
-    backgroundColor: '#0B0D12',
+    backgroundColor: '#02295B',
     // SECURITY: Keep renderer sandboxed. Do NOT set nodeIntegration:true or
     // contextIsolation:false — older electron/main.js once used those insecure
     // defaults; this shell must not regress.

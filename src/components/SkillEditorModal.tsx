@@ -110,11 +110,11 @@ ${aiPrompt}
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-obsidian-950/80 backdrop-blur-md">
-      <div className="glass-panel w-full max-w-3xl rounded-2xl border border-purple-500/40 p-6 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <div className="glass-panel w-full max-w-3xl rounded-2xl border brand-border p-6 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-glow-indigo">
+            <div className="p-2.5 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white brand-ring">
               <Zap className="w-5 h-5" />
             </div>
             <div>
@@ -132,13 +132,13 @@ ${aiPrompt}
         </div>
 
         {/* AI SKILL BUILDER / GENERATOR BOX (Gemini Gems / Claude / ChatGPT style) */}
-        <div className="p-4 rounded-xl glass-card border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-obsidian-950 to-indigo-950/40 space-y-2">
+        <div className="p-4 rounded-xl glass-card border brand-border brand-bg-soft space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-purple-400 animate-pulse" />
+            <span className="text-xs font-bold brand-text-secondary flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 brand-text-secondary animate-pulse" />
               <span>Generate / Refine Skill with AI (Gemini Gems & Claude Assistant Builder)</span>
             </span>
-            <span className="text-[10px] text-purple-400 font-semibold">AI Assistant Co-Pilot</span>
+            <span className="text-[10px] brand-text-secondary font-semibold">AI Assistant Co-Pilot</span>
           </div>
 
           <form onSubmit={handleGenerateWithAI} className="flex gap-2">
@@ -152,7 +152,7 @@ ${aiPrompt}
             <button
               type="submit"
               disabled={isGenerating}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-purple-600/30 transition-all shrink-0"
+              className="px-4 py-2 rounded-xl brand-gradient font-bold text-xs flex items-center gap-1.5 shadow-md shadow-purple-600/30 transition-all shrink-0"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
               <span>{isGenerating ? 'Generating...' : '✨ Auto-Generate SKILL.md'}</span>
@@ -202,8 +202,8 @@ ${aiPrompt}
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-purple-300 block flex items-center gap-1.5">
-              <Code className="w-3.5 h-3.5 text-purple-400" />
+            <label className="text-xs font-semibold brand-text-secondary block flex items-center gap-1.5">
+              <Code className="w-3.5 h-3.5 brand-text-secondary" />
               <span>SKILL.md Instruction Content</span>
             </label>
             <textarea
@@ -211,7 +211,7 @@ ${aiPrompt}
               value={skillMdContent}
               onChange={(e) => setSkillMdContent(e.target.value)}
               placeholder="Write or edit markdown instructions..."
-              className="w-full p-4 rounded-xl glass-input font-mono text-xs text-purple-200 leading-relaxed resize-none"
+              className="w-full p-4 rounded-xl glass-input font-mono text-xs brand-text-secondary leading-relaxed resize-none"
             />
           </div>
 
@@ -225,7 +225,7 @@ ${aiPrompt}
             </button>
             <button
               type="submit"
-              className="px-6 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-600/30"
+              className="px-6 py-2 rounded-xl brand-secondary-fill font-bold text-xs shadow-md"
             >
               {isEditing ? 'Update Skill' : 'Save & Enable Skill'}
             </button>

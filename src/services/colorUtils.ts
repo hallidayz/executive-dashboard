@@ -18,7 +18,7 @@ export function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
 }
 
-export function normalizeHex(input: string, fallback = '#6366F1'): string {
+export function normalizeHex(input: string, fallback = '#FDA700'): string {
   const raw = (input || '').trim();
   if (/^#[0-9A-Fa-f]{6}$/.test(raw)) return raw.toUpperCase();
   if (/^[0-9A-Fa-f]{6}$/.test(raw)) return `#${raw.toUpperCase()}`;

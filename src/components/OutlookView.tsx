@@ -159,15 +159,15 @@ export const OutlookView: React.FC<UniversalEmailCalViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="glass-panel p-5 rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-obsidian-900 via-cyan-950/40 to-indigo-950/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="glass-panel p-5 rounded-2xl border brand-border bg-gradient-to-r from-obsidian-900 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+          <div className="p-3 rounded-xl brand-bg-soft brand-text border brand-border">
             <Mail className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-slate-100">Universal Email & Calendar Hub (EMAIL & CAL)</h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-bold">
+              <span className="px-2.5 py-0.5 rounded-full brand-bg-soft brand-text border brand-border text-[10px] font-bold">
                 {accounts.length} Active Accounts Connected
               </span>
             </div>
@@ -180,7 +180,7 @@ export const OutlookView: React.FC<UniversalEmailCalViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowAddAccountModal(true)}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-cyan-600/30 transition-all"
+            className="px-4 py-2.5 rounded-xl brand-button font-bold text-xs flex items-center gap-1.5 brand-ring transition-all"
           >
             <Plus className="w-4 h-4" />
             <span>Add Email & Cal Account</span>
@@ -194,7 +194,7 @@ export const OutlookView: React.FC<UniversalEmailCalViewProps> = ({
           onClick={() => setSelectedAccountFilter('All')}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
             selectedAccountFilter === 'All'
-              ? 'bg-cyan-600 text-white shadow-md'
+              ? 'brand-button shadow-md'
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
           }`}
         >
@@ -208,13 +208,13 @@ export const OutlookView: React.FC<UniversalEmailCalViewProps> = ({
             onClick={() => setSelectedAccountFilter(acc.email)}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 border ${
               selectedAccountFilter === acc.email
-                ? 'bg-slate-800 text-white border-cyan-400/50 shadow-md'
+                ? 'bg-slate-800 text-white brand-border shadow-md'
                 : 'text-slate-400 hover:text-slate-200 border-slate-800'
             }`}
           >
             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: acc.color }} />
             <span>{acc.name}</span>
-            <span className="px-1.5 py-0.2 rounded-md bg-obsidian-950 text-[10px] text-cyan-300 font-mono">
+            <span className="px-1.5 py-0.2 rounded-md bg-obsidian-950 text-[10px] brand-text font-mono">
               {acc.unreadEmailsCount}
             </span>
           </button>
@@ -228,7 +228,7 @@ export const OutlookView: React.FC<UniversalEmailCalViewProps> = ({
           <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-cyan-400" />
+                <Calendar className="w-5 h-5 brand-text" />
                 <h3 className="font-bold text-slate-100 text-base">Executive Calendar Stream</h3>
               </div>
               <span className="text-xs text-slate-400 font-medium">Today</span>
@@ -238,11 +238,11 @@ export const OutlookView: React.FC<UniversalEmailCalViewProps> = ({
               {filteredEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="p-4 rounded-xl glass-card border border-slate-800 hover:border-cyan-500/40 transition-all space-y-2"
+                  className="p-4 rounded-xl glass-card border border-slate-800 hover:border-[var(--brand-accent-border)] transition-all space-y-2"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-cyan-300 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="text-xs font-bold brand-text flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 brand-text" />
                       <span>{event.startTime} - {event.endTime}</span>
                     </span>
                     <span
@@ -266,7 +266,7 @@ export const OutlookView: React.FC<UniversalEmailCalViewProps> = ({
                         href={event.meetingLink}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-cyan-400 hover:underline font-bold flex items-center gap-1"
+                        className="brand-text hover:underline font-bold flex items-center gap-1"
                       >
                         <span>Join</span>
                         <ExternalLink className="w-3 h-3" />
@@ -301,7 +301,7 @@ export const OutlookView: React.FC<UniversalEmailCalViewProps> = ({
                     key={cat}
                     onClick={() => setEmailCategoryFilter(cat)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                      emailCategoryFilter === cat ? 'bg-cyan-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+                      emailCategoryFilter === cat ? 'brand-button shadow-md' : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
                     {cat}
@@ -320,8 +320,8 @@ export const OutlookView: React.FC<UniversalEmailCalViewProps> = ({
                     onClick={() => setSelectedEmail(em)}
                     className={`p-4 rounded-xl glass-card border transition-all cursor-pointer space-y-2 ${
                       isSelected
-                        ? 'border-cyan-500/50 bg-cyan-950/20 shadow-glow-cyan'
-                        : 'border-slate-800 hover:border-cyan-500/30'
+                        ? 'brand-border brand-bg-soft brand-ring'
+                        : 'border-slate-800 hover:border-[var(--brand-accent-border)]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -336,12 +336,12 @@ export const OutlookView: React.FC<UniversalEmailCalViewProps> = ({
                     <p className="text-xs text-slate-400 line-clamp-2">{em.preview}</p>
 
                     <div className="flex items-center justify-between pt-1 text-xs">
-                      <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-bold">
+                      <span className="px-2 py-0.5 rounded-full brand-bg-soft brand-text text-[10px] font-bold">
                         {em.category}
                       </span>
                       {em.isPriority && (
-                        <span className="text-amber-400 font-bold flex items-center gap-1">
-                          <Star className="w-3.5 h-3.5 fill-amber-400" />
+                        <span className="brand-text font-bold flex items-center gap-1">
+                          <Star className="w-3.5 h-3.5 fill-[var(--brand-accent)]" />
                           <span>VIP Priority</span>
                         </span>
                       )}
@@ -357,10 +357,10 @@ export const OutlookView: React.FC<UniversalEmailCalViewProps> = ({
       {/* 1-CLICK ADD EMAIL & CALENDAR ACCOUNT MODAL */}
       {showAddAccountModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-obsidian-950/80 backdrop-blur-md">
-          <div className="glass-panel w-full max-w-lg rounded-2xl border border-cyan-500/40 p-6 space-y-4 shadow-2xl relative">
+          <div className="glass-panel w-full max-w-lg rounded-2xl border brand-border p-6 space-y-4 shadow-2xl relative">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
-                <Mail className="w-5 h-5 text-cyan-400" />
+                <Mail className="w-5 h-5 brand-text" />
                 <h3 className="font-bold text-slate-100 text-base">Add Email & Calendar Account</h3>
               </div>
               <button onClick={() => setShowAddAccountModal(false)} className="text-slate-400 hover:text-white">
@@ -409,7 +409,7 @@ export const OutlookView: React.FC<UniversalEmailCalViewProps> = ({
               </div>
 
               <div className="p-3 rounded-xl bg-obsidian-950 border border-slate-800 text-[11px] text-slate-300 space-y-1">
-                <span className="font-bold text-cyan-400 flex items-center gap-1">
+                <span className="font-bold brand-text flex items-center gap-1">
                   <Shield className="w-3.5 h-3.5" />
                   <span>1-Click IDP OAuth Authentication</span>
                 </span>
@@ -427,7 +427,7 @@ export const OutlookView: React.FC<UniversalEmailCalViewProps> = ({
                 <button
                   type="submit"
                   disabled={isConnectingAccount}
-                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30"
+                  className="px-5 py-2 rounded-xl brand-button font-bold text-xs brand-ring"
                 >
                   {isConnectingAccount ? 'Connecting Account...' : 'Connect Account & Sync'}
                 </button>

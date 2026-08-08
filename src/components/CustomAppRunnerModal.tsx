@@ -102,7 +102,7 @@ export const CustomAppRunnerModal: React.FC<CustomAppRunnerModalProps> = ({
                 type="button"
                 onClick={() => setAppType(t)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                  appType === t ? 'bg-amber-500 text-obsidian-950 shadow-md font-bold' : 'text-slate-400'
+                  appType === t ? 'brand-button shadow-md font-bold' : 'text-slate-400'
                 }`}
               >
                 {t === 'code' ? 'HTML/JS Code' : t === 'iframe' ? 'Embed IFrame' : 'Webhook URI'}
@@ -112,12 +112,12 @@ export const CustomAppRunnerModal: React.FC<CustomAppRunnerModalProps> = ({
 
           {appType === 'code' ? (
             <div className="space-y-1">
-              <span className="text-[11px] font-bold text-amber-400 uppercase">Write Custom HTML / JS Code</span>
+              <span className="text-[11px] font-bold brand-text uppercase">Write Custom HTML / JS Code</span>
               <textarea
                 rows={6}
                 value={codeSnippet}
                 onChange={(e) => setCodeSnippet(e.target.value)}
-                className="w-full p-3 rounded-xl glass-input font-mono text-xs text-amber-200 resize-none"
+                className="w-full p-3 rounded-xl glass-input font-mono text-xs brand-text resize-none"
               />
             </div>
           ) : (
@@ -140,7 +140,7 @@ export const CustomAppRunnerModal: React.FC<CustomAppRunnerModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-obsidian-950 font-bold text-xs flex items-center gap-1.5 shadow-glow-gold"
+              className="px-5 py-2 rounded-xl brand-button font-bold text-xs flex items-center gap-1.5 brand-ring"
             >
               <Play className="w-3.5 h-3.5" />
               <span>Save & Launch App</span>

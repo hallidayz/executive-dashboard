@@ -33,11 +33,11 @@ export const AILeadershipCloneView: React.FC<AILeadershipCloneProps> = ({
   return (
     <div className="space-y-6">
       {/* Executive Persona Header */}
-      <div className="relative overflow-hidden rounded-2xl glass-panel p-6 border border-purple-500/40 bg-gradient-to-r from-purple-950/80 via-obsidian-900 to-indigo-950/80 shadow-glow-indigo">
+      <div className="relative overflow-hidden rounded-2xl glass-panel p-6 border brand-border bg-gradient-to-r from-obsidian-900 brand-ring">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 text-xs font-semibold">
-              <Bot className="w-4 h-4 text-purple-400" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full brand-bg-soft brand-text-secondary border brand-border text-xs font-semibold">
+              <Bot className="w-4 h-4 brand-text-secondary" />
               <span>Personal Leadership AI Clone</span>
             </div>
             <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">
@@ -49,13 +49,13 @@ export const AILeadershipCloneView: React.FC<AILeadershipCloneProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-3 shrink-0">
-            <div className="glass-card p-3 rounded-xl border border-purple-500/30 text-center">
+            <div className="glass-card p-3 rounded-xl border brand-border text-center">
               <span className="text-[11px] text-slate-400 font-medium">Influence Score</span>
-              <p className="text-2xl font-black text-purple-400">94/100</p>
+              <p className="text-2xl font-black brand-text-secondary">94/100</p>
             </div>
-            <div className="glass-card p-3 rounded-xl border border-purple-500/30 text-center">
+            <div className="glass-card p-3 rounded-xl border brand-border text-center">
               <span className="text-[11px] text-slate-400 font-medium">Logged Rules</span>
-              <p className="text-2xl font-black text-indigo-400">{personaRules.length}</p>
+              <p className="text-2xl font-black brand-text">{personaRules.length}</p>
             </div>
           </div>
         </div>
@@ -67,7 +67,7 @@ export const AILeadershipCloneView: React.FC<AILeadershipCloneProps> = ({
         <div className="lg:col-span-7 space-y-4">
           <div className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-              <Sparkles className="w-5 h-5 text-purple-400" />
+              <Sparkles className="w-5 h-5 brand-text-secondary" />
               <h3 className="font-bold text-slate-100 text-base">"What Would I Do?" Scenario Testing</h3>
             </div>
 
@@ -81,7 +81,7 @@ export const AILeadershipCloneView: React.FC<AILeadershipCloneProps> = ({
               />
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition-all"
+                className="w-full py-3 rounded-xl brand-gradient font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all"
               >
                 <Cpu className="w-4 h-4" />
                 <span>Simulate My Decision Stance</span>
@@ -90,12 +90,12 @@ export const AILeadershipCloneView: React.FC<AILeadershipCloneProps> = ({
 
             {/* Simulation Results */}
             {simulationResult && (
-              <div className="p-5 rounded-2xl glass-card border border-purple-500/50 space-y-4">
+              <div className="p-5 rounded-2xl glass-card border brand-border space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                  <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">
+                  <span className="text-xs font-bold brand-text-secondary uppercase tracking-wider">
                     Simulated Executive Response
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">
+                  <span className="px-2.5 py-0.5 rounded-full brand-bg-soft brand-text-secondary border brand-border text-[10px] font-bold">
                     Confidence: {simulationResult.strategicConfidence}%
                   </span>
                 </div>
@@ -108,8 +108,8 @@ export const AILeadershipCloneView: React.FC<AILeadershipCloneProps> = ({
                   <span className="text-[11px] font-bold text-slate-400 uppercase">Persona Rules Applied</span>
                   <div className="space-y-1">
                     {simulationResult.matchedRules.map((rule, idx) => (
-                      <div key={idx} className="text-xs text-purple-300 flex items-center gap-2">
-                        <CheckCircle className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                      <div key={idx} className="text-xs brand-text-secondary flex items-center gap-2">
+                        <CheckCircle className="w-3.5 h-3.5 brand-text-secondary shrink-0" />
                         <span>{rule}</span>
                       </div>
                     ))}
@@ -136,11 +136,11 @@ export const AILeadershipCloneView: React.FC<AILeadershipCloneProps> = ({
                 <div key={rule.id} className="p-4 rounded-xl glass-card border border-slate-800/80 space-y-2">
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold text-slate-100 text-sm">{rule.trait}</h4>
-                    <span className="text-xs font-bold text-purple-400">{rule.influenceScore}% Alignment</span>
+                    <span className="text-xs font-bold brand-text-secondary">{rule.influenceScore}% Alignment</span>
                   </div>
                   <p className="text-xs text-slate-300">{rule.ruleDescription}</p>
                   <div className="p-2.5 rounded-lg bg-obsidian-950 text-[11px] text-slate-400">
-                    <span className="text-indigo-400 font-bold">Example: </span>
+                    <span className="brand-text font-bold">Example: </span>
                     {rule.exampleScenario}
                   </div>
                 </div>

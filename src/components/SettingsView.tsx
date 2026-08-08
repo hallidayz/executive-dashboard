@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Settings,
   Cpu,
@@ -46,7 +46,8 @@ import {
   ImagePlus,
   Palette,
   Wand2,
-} from 'lucide-react';
+  Mic,
+} from "lucide-react";
 import {
   AppSettings,
   AIProviderConfig,
@@ -61,7 +62,7 @@ import {
   WidgetConfig,
   WorkspacePreset,
   SidebarNavId,
-} from '../types';
+} from "../types";
 import {
   BRAND_PRESETS,
   FONT_PRESETS,
@@ -69,32 +70,45 @@ import {
   contrastOnAccent,
   stopsFromPair,
   suggestFontColorFromAccent,
-} from '../services/brandingService';
-import { applyThemePreference } from '../services/themeService';
-import { hsvaToHex, isCompleteHex, normalizeHex } from '../services/colorUtils';
-import { AutoConnectModal } from './AutoConnectModal';
-import { ConnectorSetupWizardModal } from './ConnectorSetupWizardModal';
-import { SkillEditorModal } from './SkillEditorModal';
-import { LocalFilePathBadge } from './LocalFilePathBadge';
-import { WorkspaceLayoutSettings } from './WorkspaceLayoutSettings';
-import { ColorHexRow } from './ColorPickerPopover';
-import { INITIAL_CONNECTORS_CATALOG } from '../services/connectorsCatalog';
+} from "../services/brandingService";
+import { applyThemePreference } from "../services/themeService";
+import { hsvaToHex, isCompleteHex, normalizeHex } from "../services/colorUtils";
+import { AutoConnectModal } from "./AutoConnectModal";
+import { ConnectorSetupWizardModal } from "./ConnectorSetupWizardModal";
+import { SkillEditorModal } from "./SkillEditorModal";
+import { LocalFilePathBadge } from "./LocalFilePathBadge";
+import { WorkspaceLayoutSettings } from "./WorkspaceLayoutSettings";
+import { ColorHexRow } from "./ColorPickerPopover";
+import { INITIAL_CONNECTORS_CATALOG } from "../services/connectorsCatalog";
+import {
+  CONNECTOR_APPROACHES,
+  approachLabel,
+  approachShortLabel,
+  connectorSetupCta,
+  normalizeConnectorsCatalog,
+} from "../services/connectorApproaches";
+import type { ConnectorApproach } from "../types";
 import {
   detectHostPlatform,
   getDiscoveredSystemSkills,
   getHomeDirectory,
-} from '../services/systemSkillsScanner';
-import { saveSkillToPersistentStorage } from '../services/knowledgeBaseSync';
-import { storageService } from '../services/storageService';
+} from "../services/systemSkillsScanner";
+import { saveSkillToPersistentStorage } from "../services/knowledgeBaseSync";
+import { storageService } from "../services/storageService";
+import {
+  FREE_AI_SOURCES,
+  FREE_MODELS_DIRECTORY_URL,
+  type FreeAiSource,
+} from "../services/freeAiSources";
 
 type SettingsSubTab =
-  | 'general'
-  | 'workspace'
-  | 'skills'
-  | 'connectors'
-  | 'ai-models'
-  | 'claude-md'
-  | 'system';
+  | "general"
+  | "workspace"
+  | "skills"
+  | "connectors"
+  | "ai-models"
+  | "claude-md"
+  | "system";
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -118,7 +132,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onSelectPreset,
   initialSubTab,
 }) => {
-  const [subTab, setSubTab] = useState<SettingsSubTab>(initialSubTab || 'general');
+  const [subTab, setSubTab] = useState<SettingsSubTab>(
+    initialSubTab || "general",
+  );
 
   useEffect(() => {
     if (initialSubTab) setSubTab(initialSubTab);
@@ -127,7 +143,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showSyncInfoTooltip, setShowSyncInfoTooltip] = useState(false);
   const [kbSyncMessage, setKbSyncMessage] = useState<string | null>(null);
-  const [workspaceTransferMessage, setWorkspaceTransferMessage] = useState<string | null>(null);
+  const [workspaceTransferMessage, setWorkspaceTransferMessage] = useState<
+    string | null
+  >(null);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [showPaletteHelp, setShowPaletteHelp] = useState(false);
   const hostPlatform = detectHostPlatform();
@@ -135,23 +153,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   // System Discovered Skills State
   const [systemSkills, setSystemSkills] = useState<SystemDiscoveredSkill[]>(
-    settings.discoveredSystemSkills && settings.discoveredSystemSkills.length > 0
+    settings.discoveredSystemSkills &&
+      settings.discoveredSystemSkills.length > 0
       ? settings.discoveredSystemSkills
-      : getDiscoveredSystemSkills()
+      : getDiscoveredSystemSkills(),
   );
-  const [selectedSystemSource, setSelectedSystemSource] = useState<string>('All Systems');
+  const [selectedSystemSource, setSelectedSystemSource] =
+    useState<string>("All Systems");
   const [isScanningSystem, setIsScanningSystem] = useState(false);
 
-  // Connectors State
-  const [connectorsList, setConnectorsList] = useState<ConnectorItem[]>(
-    settings.connectors && settings.connectors.length > 0 ? settings.connectors : INITIAL_CONNECTORS_CATALOG
+  // Connectors State — catalog + saved, migrated from legacy Notion keys
+  const [connectorsList, setConnectorsList] = useState<ConnectorItem[]>(() =>
+    normalizeConnectorsCatalog(
+      settings.connectors,
+      INITIAL_CONNECTORS_CATALOG,
+      {
+        notionApiKey: settings.notionApiKey,
+        notionDatabaseId: settings.notionDatabaseId,
+        notionConnected: settings.notionConnected,
+        krispAutoSync: settings.krispAutoSync,
+      },
+    ),
   );
-  const [connectorEcosystem, setConnectorEcosystem] = useState<string>('All');
-  const [connectorSearch, setConnectorSearch] = useState('');
-  const [selectedConnectorForSetup, setSelectedConnectorForSetup] = useState<ConnectorItem | null>(null);
+  const [connectorEcosystem, setConnectorEcosystem] = useState<string>("All");
+  const [connectorApproachFilter, setConnectorApproachFilter] =
+    useState<string>("All");
+  const [connectorStatusFilter, setConnectorStatusFilter] = useState<
+    "All" | "Connected" | "Available"
+  >("All");
+  const [connectorSearch, setConnectorSearch] = useState("");
+  const [selectedConnectorForSetup, setSelectedConnectorForSetup] =
+    useState<ConnectorItem | null>(null);
 
   // Global settings density: tiles (grid) vs compact list — applies to all sub-tabs
-  const [settingsViewMode, setSettingsViewMode] = useState<'grid' | 'list'>('grid');
+  const [settingsViewMode, setSettingsViewMode] = useState<"grid" | "list">(
+    "list",
+  );
 
   // Unified Skill Editor Modal State
   const [showSkillEditor, setShowSkillEditor] = useState(false);
@@ -161,10 +198,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [showAddProviderModal, setShowAddProviderModal] = useState(false);
   const [showAutoConnectModal, setShowAutoConnectModal] = useState(false);
 
-  const [providerType, setProviderType] = useState<AIProviderConfig['provider']>('Ollama (Local)');
-  const [providerEndpoint, setProviderEndpoint] = useState('http://localhost:11434');
-  const [providerModel, setProviderModel] = useState('llama3.3:70b');
-  const [providerApiKey, setProviderApiKey] = useState('');
+  const [providerType, setProviderType] =
+    useState<AIProviderConfig["provider"]>("Ollama (Local)");
+  const [providerEndpoint, setProviderEndpoint] = useState(
+    "http://localhost:11434",
+  );
+  const [providerModel, setProviderModel] = useState("llama3.3:70b");
+  const [providerApiKey, setProviderApiKey] = useState("");
+  const [freeConnectSource, setFreeConnectSource] =
+    useState<FreeAiSource | null>(null);
+  const [freeConnectKey, setFreeConnectKey] = useState("");
+  const [freeConnectModel, setFreeConnectModel] = useState("");
+  const [freeConnectEndpoint, setFreeConnectEndpoint] = useState("");
 
   // Listen for real-time bi-directional Knowledge Base skill updates
   useEffect(() => {
@@ -173,16 +218,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setFormData((prev) => ({ ...prev, customSkills: e.detail }));
       }
     };
-    window.addEventListener('knowledge_base_skill_sync', handleKnowledgeBaseSync);
-    return () => window.removeEventListener('knowledge_base_skill_sync', handleKnowledgeBaseSync);
+    window.addEventListener(
+      "knowledge_base_skill_sync",
+      handleKnowledgeBaseSync,
+    );
+    return () =>
+      window.removeEventListener(
+        "knowledge_base_skill_sync",
+        handleKnowledgeBaseSync,
+      );
   }, []);
 
   const handleSaveAll = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const updated = { ...formData, connectors: connectorsList, discoveredSystemSkills: systemSkills };
+    const updated = {
+      ...formData,
+      connectors: connectorsList,
+      discoveredSystemSkills: systemSkills,
+    };
     onSaveSettings(updated);
     // Full personalization pack: theme mode + brand colors/buttons + fonts across the app.
-    applyThemePreference(updated.theme || 'system');
+    applyThemePreference(updated.theme || "system");
     applyBranding(updated);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 1600);
@@ -196,7 +252,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     (formData.customSkills || []).forEach((s) => {
       saveSkillToPersistentStorage(s);
     });
-    setKbSyncMessage('All skills successfully upserted & synced to Knowledge Base!');
+    setKbSyncMessage(
+      "All skills successfully upserted & synced to Knowledge Base!",
+    );
     setTimeout(() => setKbSyncMessage(null), 2500);
   };
 
@@ -211,14 +269,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleExportWorkspace = () => {
     const payload = storageService.exportWorkspace();
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `exec-dash-workspace-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    setWorkspaceTransferMessage('Workspace exported — copy this file to your other machine and Import.');
+    setWorkspaceTransferMessage(
+      "Workspace exported — copy this file to your other machine and Import.",
+    );
     setTimeout(() => setWorkspaceTransferMessage(null), 3500);
   };
 
@@ -230,7 +292,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         const parsed = JSON.parse(String(reader.result));
         const ok = storageService.importWorkspace(parsed);
         if (!ok) {
-          setWorkspaceTransferMessage('Import failed — file is not a valid workspace export.');
+          setWorkspaceTransferMessage(
+            "Import failed — file is not a valid workspace export.",
+          );
           setTimeout(() => setWorkspaceTransferMessage(null), 3500);
           return;
         }
@@ -240,17 +304,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setSystemSkills(
           next.discoveredSystemSkills && next.discoveredSystemSkills.length > 0
             ? next.discoveredSystemSkills
-            : getDiscoveredSystemSkills()
+            : getDiscoveredSystemSkills(),
         );
         setConnectorsList(
           next.connectors && next.connectors.length > 0
             ? next.connectors
-            : INITIAL_CONNECTORS_CATALOG
+            : INITIAL_CONNECTORS_CATALOG,
         );
-        setWorkspaceTransferMessage('Workspace imported. Settings and mock data reloaded from file.');
+        setWorkspaceTransferMessage(
+          "Workspace imported. Settings and mock data reloaded from file.",
+        );
         setTimeout(() => setWorkspaceTransferMessage(null), 3500);
       } catch {
-        setWorkspaceTransferMessage('Import failed — could not parse JSON.');
+        setWorkspaceTransferMessage("Import failed — could not parse JSON.");
         setTimeout(() => setWorkspaceTransferMessage(null), 3500);
       }
     };
@@ -258,7 +324,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleSaveConnector = (updatedConnector: ConnectorItem) => {
-    const updatedList = connectorsList.map((c) => (c.id === updatedConnector.id ? updatedConnector : c));
+    const updatedList = connectorsList.map((c) =>
+      c.id === updatedConnector.id ? updatedConnector : c,
+    );
     setConnectorsList(updatedList);
     const updatedSettings = { ...formData, connectors: updatedList };
     setFormData(updatedSettings);
@@ -271,7 +339,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setFormData(updated);
     onSaveSettings(updated);
 
-    setKbSyncMessage(`Skill '${savedSkill.name}' upserted into Knowledge Base!`);
+    setKbSyncMessage(
+      `Skill '${savedSkill.name}' upserted into Knowledge Base!`,
+    );
     setTimeout(() => setKbSyncMessage(null), 2500);
   };
 
@@ -296,12 +366,63 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       apiKey: providerApiKey || undefined,
       isDefault: false,
       connected: true,
+      tier:
+        providerType.includes("Local") || providerType.includes("GPU")
+          ? "local"
+          : "paid",
     };
 
-    const updated = { ...formData, aiProviders: [...(formData.aiProviders || []), prov] };
+    const updated = {
+      ...formData,
+      aiProviders: [...(formData.aiProviders || []), prov],
+    };
     setFormData(updated);
     onSaveSettings(updated);
     setShowAddProviderModal(false);
+  };
+
+  const openFreeSourceConnect = (source: FreeAiSource) => {
+    const existing = (formData.aiProviders || []).find(
+      (p) => p.freeSourceId === source.id,
+    );
+    setFreeConnectSource(source);
+    setFreeConnectKey(existing?.apiKey || "");
+    setFreeConnectModel(existing?.selectedModel || source.suggestedModel);
+    setFreeConnectEndpoint(existing?.endpoint || source.endpoint);
+  };
+
+  const handleConnectFreeSource = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!freeConnectSource) return;
+    if (freeConnectSource.requiresKey && !freeConnectKey.trim()) return;
+
+    const existingIdx = (formData.aiProviders || []).findIndex(
+      (p) => p.freeSourceId === freeConnectSource.id,
+    );
+    const prov: AIProviderConfig = {
+      id:
+        existingIdx >= 0
+          ? formData.aiProviders![existingIdx].id
+          : `prov-free-${freeConnectSource.id}`,
+      provider: freeConnectSource.name,
+      endpoint: freeConnectEndpoint.trim() || freeConnectSource.endpoint,
+      selectedModel: freeConnectModel.trim() || freeConnectSource.suggestedModel,
+      apiKey: freeConnectKey.trim() || undefined,
+      isDefault: existingIdx >= 0 ? formData.aiProviders![existingIdx].isDefault : false,
+      connected: true,
+      freeSourceId: freeConnectSource.id,
+      tier: "free",
+    };
+
+    const list = [...(formData.aiProviders || [])];
+    if (existingIdx >= 0) list[existingIdx] = prov;
+    else list.push(prov);
+
+    const updated = { ...formData, aiProviders: list };
+    setFormData(updated);
+    onSaveSettings(updated);
+    setFreeConnectSource(null);
+    setFreeConnectKey("");
   };
 
   const handleAutoConnectSystem = (connector: AutoConnectorSpec) => {
@@ -314,14 +435,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       connected: true,
     };
 
-    const updated = { ...formData, aiProviders: [...(formData.aiProviders || []), prov] };
+    const updated = {
+      ...formData,
+      aiProviders: [...(formData.aiProviders || []), prov],
+    };
     setFormData(updated);
     onSaveSettings(updated);
   };
 
   const toggleSkill = (id: string) => {
     const updatedSkills = (formData.customSkills || []).map((s) =>
-      s.id === id ? { ...s, enabled: !s.enabled } : s
+      s.id === id ? { ...s, enabled: !s.enabled } : s,
     );
     const updated = { ...formData, customSkills: updatedSkills };
     setFormData(updated);
@@ -340,37 +464,97 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const getConnectorIcon = (icon: string) => {
     switch (icon) {
-      case 'Mail': return <Mail className="w-5 h-5 text-cyan-400" />;
-      case 'MessageSquare': return <MessageSquare className="w-5 h-5 text-indigo-400" />;
-      case 'FileText': return <FileText className="w-5 h-5 text-emerald-400" />;
-      case 'Code': return <Code className="w-5 h-5 text-amber-400" />;
-      case 'Sparkles': return <Sparkles className="w-5 h-5 text-purple-400" />;
-      case 'Bot': return <Bot className="w-5 h-5 text-gold-400" />;
-      case 'Globe': return <Globe className="w-5 h-5 text-blue-400" />;
-      case 'Database': return <Database className="w-5 h-5 text-purple-300" />;
-      case 'CheckSquare': return <CheckSquare className="w-5 h-5 text-cyan-300" />;
-      case 'Shield': return <Shield className="w-5 h-5 text-rose-400" />;
-      default: return <Share2 className="w-5 h-5 text-indigo-400" />;
+      case "Mail":
+        return <Mail className="w-5 h-5 brand-text" />;
+      case "MessageSquare":
+        return <MessageSquare className="w-5 h-5 brand-text" />;
+      case "FileText":
+        return <FileText className="w-5 h-5 brand-text" />;
+      case "Code":
+        return <Code className="w-5 h-5 brand-text" />;
+      case "Sparkles":
+        return <Sparkles className="w-5 h-5 brand-text-secondary" />;
+      case "Bot":
+        return <Bot className="w-5 h-5 brand-text" />;
+      case "Globe":
+        return <Globe className="w-5 h-5 brand-text" />;
+      case "Database":
+        return <Database className="w-5 h-5 brand-text-secondary" />;
+      case "CheckSquare":
+        return <CheckSquare className="w-5 h-5 brand-text" />;
+      case "Shield":
+        return <Shield className="w-5 h-5 text-rose-400" />;
+      case "Zap":
+        return <Zap className="w-5 h-5 brand-text" />;
+      case "Mic":
+        return <Mic className="w-5 h-5 brand-text" />;
+      default:
+        return <Share2 className="w-5 h-5 brand-text" />;
     }
   };
 
   const filteredSystemSkills = systemSkills.filter(
-    (s) => selectedSystemSource === 'All Systems' || s.sourceSystem === selectedSystemSource
+    (s) =>
+      selectedSystemSource === "All Systems" ||
+      s.sourceSystem === selectedSystemSource,
   );
 
   const filteredConnectors = connectorsList.filter((c) => {
-    const matchesEco = connectorEcosystem === 'All' || c.ecosystem === connectorEcosystem;
-    const matchesSearch = c.name.toLowerCase().includes(connectorSearch.toLowerCase()) || c.description.toLowerCase().includes(connectorSearch.toLowerCase());
-    return matchesEco && matchesSearch;
+    const matchesEco =
+      connectorEcosystem === "All" || c.ecosystem === connectorEcosystem;
+    const matchesApproach =
+      connectorApproachFilter === "All" ||
+      c.approach === connectorApproachFilter;
+    const matchesStatus =
+      connectorStatusFilter === "All" ||
+      (connectorStatusFilter === "Connected" && c.status === "Connected") ||
+      (connectorStatusFilter === "Available" && c.status !== "Connected");
+    const q = connectorSearch.toLowerCase();
+    const matchesSearch =
+      !q ||
+      c.name.toLowerCase().includes(q) ||
+      c.description.toLowerCase().includes(q) ||
+      approachLabel(c.approach).toLowerCase().includes(q);
+    return matchesEco && matchesApproach && matchesStatus && matchesSearch;
   });
 
-  const ecosystemsList = ['All', 'Microsoft', 'Claude', 'ChatGPT', 'Google', 'n8n', 'Enterprise SaaS', 'Developer & Data'];
-  const systemSourcesList = ['All Systems', 'Antigravity', 'Claude', 'Gemini', 'Cursor', 'ChatGPT', 'Perplexity', 'Google AI Studio'];
+  const ecosystemsList = [
+    "All",
+    "Microsoft",
+    "Claude",
+    "ChatGPT",
+    "Google",
+    "n8n",
+    "iPaaS",
+    "MCP",
+    "AI Assistant",
+    "Enterprise SaaS",
+    "Developer & Data",
+    "Custom",
+  ];
+  const approachFilterList = [
+    "All",
+    ...CONNECTOR_APPROACHES.map((a) => a.id),
+  ];
+  const systemSourcesList = [
+    "All Systems",
+    "Antigravity",
+    "Claude",
+    "Gemini",
+    "Cursor",
+    "ChatGPT",
+    "Perplexity",
+    "Google AI Studio",
+  ];
 
   const persistPartial = (patch: Partial<AppSettings>) => {
     const updated = { ...formData, ...patch };
     setFormData(updated);
-    onSaveSettings({ ...updated, connectors: connectorsList, discoveredSystemSkills: systemSkills });
+    onSaveSettings({
+      ...updated,
+      connectors: connectorsList,
+      discoveredSystemSkills: systemSkills,
+    });
     applyBranding(updated);
   };
 
@@ -385,10 +569,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       brandPreset: preset.id,
       accentColor: preset.accent,
       accentSecondary: preset.secondary,
-      primaryContrastColor: preset.primaryContrast || contrastOnAccent(preset.accent),
+      primaryContrastColor:
+        preset.primaryContrast || contrastOnAccent(preset.accent),
       primaryFontColor: preset.font,
       primaryFontLinked: true,
-      secondaryContrastColor: preset.secondaryContrast || contrastOnAccent(preset.secondary),
+      secondaryContrastColor:
+        preset.secondaryContrast || contrastOnAccent(preset.secondary),
       secondaryFontColor: preset.secondaryFont,
       secondaryFontLinked: true,
       brandGradientStops: stopsFromPair(preset.accent, preset.secondary),
@@ -396,12 +582,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   type BrandColorField =
-    | 'accentColor'
-    | 'accentSecondary'
-    | 'primaryFontColor'
-    | 'secondaryFontColor'
-    | 'primaryContrastColor'
-    | 'secondaryContrastColor';
+    | "accentColor"
+    | "accentSecondary"
+    | "primaryFontColor"
+    | "secondaryFontColor"
+    | "primaryContrastColor"
+    | "secondaryContrastColor";
 
   const applyBrandColor = (field: BrandColorField, raw: string) => {
     if (!isCompleteHex(raw)) {
@@ -409,67 +595,71 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       return;
     }
     const fallback =
-      field === 'accentSecondary'
-        ? '#9333EA'
-        : field === 'primaryFontColor'
-          ? '#818CF8'
-          : field === 'secondaryFontColor'
-            ? '#C084FC'
-            : field === 'primaryContrastColor' || field === 'secondaryContrastColor'
-              ? '#FFFFFF'
-              : '#6366F1';
+      field === "accentSecondary"
+        ? "#02295B"
+        : field === "primaryFontColor"
+          ? "#02295B"
+          : field === "secondaryFontColor"
+            ? "#333F3F"
+            : field === "primaryContrastColor"
+              ? "#02295B"
+              : field === "secondaryContrastColor"
+                ? "#D6D6D6"
+                : "#FDA700";
     const hex = normalizeHex(raw, fallback);
-    const accent = field === 'accentColor' ? hex : formData.accentColor || '#6366F1';
-    const secondary = field === 'accentSecondary' ? hex : formData.accentSecondary || '#9333EA';
+    const accent =
+      field === "accentColor" ? hex : formData.accentColor || "#FDA700";
+    const secondary =
+      field === "accentSecondary" ? hex : formData.accentSecondary || "#02295B";
     const patch: Partial<AppSettings> = {
-      brandPreset: 'custom',
+      brandPreset: "custom",
       [field]: hex,
       brandGradientStops: stopsFromPair(accent, secondary),
     };
 
     // Contrast always complements the fill; font only when still linked.
-    if (field === 'accentColor') {
+    if (field === "accentColor") {
       patch.primaryContrastColor = contrastOnAccent(hex);
       if (formData.primaryFontLinked !== false) {
         patch.primaryFontColor = suggestFontColorFromAccent(hex);
         patch.primaryFontLinked = true;
       }
     }
-    if (field === 'accentSecondary') {
+    if (field === "accentSecondary") {
       patch.secondaryContrastColor = contrastOnAccent(hex);
       if (formData.secondaryFontLinked !== false) {
         patch.secondaryFontColor = suggestFontColorFromAccent(hex);
         patch.secondaryFontLinked = true;
       }
     }
-    if (field === 'primaryFontColor') {
+    if (field === "primaryFontColor") {
       patch.primaryFontLinked = false;
     }
-    if (field === 'secondaryFontColor') {
+    if (field === "secondaryFontColor") {
       patch.secondaryFontLinked = false;
     }
     persistPartial(patch);
   };
 
-  const relinkPrimaryFont = (mode: 'tint' | 'contrast') => {
-    const accent = formData.accentColor || '#6366F1';
+  const relinkPrimaryFont = (mode: "tint" | "contrast") => {
+    const accent = formData.accentColor || "#FDA700";
     persistPartial({
-      brandPreset: 'custom',
+      brandPreset: "custom",
       primaryFontLinked: true,
       primaryFontColor:
-        mode === 'contrast'
+        mode === "contrast"
           ? formData.primaryContrastColor || contrastOnAccent(accent)
           : suggestFontColorFromAccent(accent),
     });
   };
 
-  const relinkSecondaryFont = (mode: 'tint' | 'contrast') => {
-    const secondary = formData.accentSecondary || '#9333EA';
+  const relinkSecondaryFont = (mode: "tint" | "contrast") => {
+    const secondary = formData.accentSecondary || "#02295B";
     persistPartial({
-      brandPreset: 'custom',
+      brandPreset: "custom",
       secondaryFontLinked: true,
       secondaryFontColor:
-        mode === 'contrast'
+        mode === "contrast"
           ? formData.secondaryContrastColor || contrastOnAccent(secondary)
           : suggestFontColorFromAccent(secondary),
     });
@@ -478,7 +668,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   /** Random harmonious custom palette (primary + secondary fills, contrasts, fonts). */
   const generateCustomPalette = () => {
     const hue = Math.floor(Math.random() * 360);
-    const accent = hsvaToHex({ h: hue, s: 62 + Math.random() * 28, v: 72 + Math.random() * 18, a: 100 });
+    const accent = hsvaToHex({
+      h: hue,
+      s: 62 + Math.random() * 28,
+      v: 72 + Math.random() * 18,
+      a: 100,
+    });
     const secondary = hsvaToHex({
       h: (hue + 28 + Math.floor(Math.random() * 40)) % 360,
       s: 55 + Math.random() * 30,
@@ -486,7 +681,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       a: 100,
     });
     persistPartial({
-      brandPreset: 'custom',
+      brandPreset: "custom",
       accentColor: accent,
       accentSecondary: secondary,
       primaryContrastColor: contrastOnAccent(accent),
@@ -500,26 +695,54 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     });
   };
 
-  const themeOptions: { id: ThemePreference; label: string; icon: React.ReactNode; hint: string }[] = [
-    { id: 'light', label: 'Light', icon: <Sun className="w-4 h-4" />, hint: 'Bright surfaces' },
-    { id: 'dark', label: 'Dark', icon: <Moon className="w-4 h-4" />, hint: 'Obsidian UI' },
-    { id: 'system', label: 'System', icon: <Laptop className="w-4 h-4" />, hint: 'Match OS' },
+  const themeOptions: {
+    id: ThemePreference;
+    label: string;
+    icon: React.ReactNode;
+    hint: string;
+  }[] = [
+    {
+      id: "light",
+      label: "Light",
+      icon: <Sun className="w-4 h-4" />,
+      hint: "Bright surfaces",
+    },
+    {
+      id: "dark",
+      label: "Dark",
+      icon: <Moon className="w-4 h-4" />,
+      hint: "Obsidian UI",
+    },
+    {
+      id: "system",
+      label: "System",
+      icon: <Laptop className="w-4 h-4" />,
+      hint: "Match OS",
+    },
   ];
 
-  const readImageAsDataUrl = (file: File | null, field: 'logoDataUrl' | 'markDataUrl') => {
+  const readImageAsDataUrl = (
+    file: File | null,
+    field: "logoDataUrl" | "markDataUrl",
+  ) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setLogoError('Please choose an image file (PNG, SVG, JPEG, or WebP).');
+    if (!file.type.startsWith("image/")) {
+      setLogoError("Please choose an image file (PNG, SVG, JPEG, or WebP).");
       return;
     }
     if (file.size > 600_000) {
-      setLogoError('Keep logos under ~600KB so settings stay fast in localStorage.');
+      setLogoError(
+        "Keep logos under ~600KB so settings stay fast in localStorage.",
+      );
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
       setLogoError(null);
-      setFormData((prev) => ({ ...prev, [field]: String(reader.result || '') }));
+      setFormData((prev) => ({
+        ...prev,
+        [field]: String(reader.result || ""),
+      }));
     };
     reader.readAsDataURL(file);
   };
@@ -527,15 +750,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="glass-panel p-5 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-obsidian-900 via-indigo-950/60 to-purple-950/60 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="glass-panel p-5 rounded-2xl border brand-border bg-gradient-to-r from-obsidian-900 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+          <div className="p-3 rounded-xl brand-bg-soft brand-text border brand-border">
             <Settings className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-100">Settings & Config</h2>
+            <h2 className="text-xl font-bold text-slate-100">
+              Settings & Config
+            </h2>
             <p className="text-xs text-slate-400">
-              Personalization, Command Center layout, skills, connectors, and system preferences — all in one place.
+              Personalization, Command Center layout, skills, connectors, and
+              system preferences — all in one place.
             </p>
           </div>
         </div>
@@ -543,15 +769,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowAutoConnectModal(true)}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-purple-600/30 transition-all"
+            className="px-4 py-2.5 rounded-xl brand-gradient font-bold text-xs flex items-center gap-1.5 shadow-md transition-all"
           >
-            <Radio className="w-4 h-4 animate-pulse text-indigo-200" />
+            <Radio className="w-4 h-4 animate-pulse brand-text" />
             <span>Auto-Connect Screen</span>
           </button>
 
           <button
             onClick={() => handleSaveAll()}
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all"
+            className="px-5 py-2.5 rounded-xl brand-button font-bold text-xs flex items-center gap-2 brand-ring transition-all"
           >
             {saveSuccess ? (
               <>
@@ -569,21 +795,49 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div className="flex items-center justify-between gap-2 bg-obsidian-900/90 p-1.5 rounded-2xl border border-slate-800">
         <div className="flex items-center gap-1.5 overflow-x-auto min-w-0 flex-1">
           {[
-            { id: 'general', label: 'Personalization', icon: <Palette className="w-4 h-4" /> },
-            { id: 'workspace', label: 'Workspace Layout', icon: <Sliders className="w-4 h-4" /> },
-            { id: 'skills', label: 'Skills & Plugins', icon: <Zap className="w-4 h-4" /> },
-            { id: 'connectors', label: 'Connectors', icon: <Share2 className="w-4 h-4" /> },
-            { id: 'ai-models', label: 'AI Models', icon: <Cpu className="w-4 h-4" /> },
-            { id: 'claude-md', label: 'CLAUDE.md', icon: <FileCode className="w-4 h-4" /> },
-            { id: 'system', label: 'System', icon: <Power className="w-4 h-4" /> },
+            {
+              id: "general",
+              label: "Personalization",
+              icon: <Palette className="w-4 h-4" />,
+            },
+            {
+              id: "workspace",
+              label: "Workspace Layout",
+              icon: <Sliders className="w-4 h-4" />,
+            },
+            {
+              id: "skills",
+              label: "Skills & Plugins",
+              icon: <Zap className="w-4 h-4" />,
+            },
+            {
+              id: "connectors",
+              label: "Connectors",
+              icon: <Share2 className="w-4 h-4" />,
+            },
+            {
+              id: "ai-models",
+              label: "AI Models",
+              icon: <Cpu className="w-4 h-4" />,
+            },
+            {
+              id: "claude-md",
+              label: "CLAUDE.md",
+              icon: <FileCode className="w-4 h-4" />,
+            },
+            {
+              id: "system",
+              label: "System",
+              icon: <Power className="w-4 h-4" />,
+            },
           ].map((item) => (
             <button
               key={item.id}
               onClick={() => setSubTab(item.id as any)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                 subTab === item.id
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                  ? "brand-button shadow-md"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
               }`}
             >
               {item.icon}
@@ -595,11 +849,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="flex items-center gap-1 bg-obsidian-950 p-1 rounded-xl border border-slate-800 shrink-0">
           <button
             type="button"
-            onClick={() => setSettingsViewMode('grid')}
+            onClick={() => setSettingsViewMode("grid")}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-              settingsViewMode === 'grid'
-                ? 'brand-gradient shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
+              settingsViewMode === "grid"
+                ? "brand-gradient shadow-md"
+                : "text-slate-400 hover:text-slate-200"
             }`}
             title="Tile / grid view for all settings sections"
           >
@@ -608,11 +862,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => setSettingsViewMode('list')}
+            onClick={() => setSettingsViewMode("list")}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-              settingsViewMode === 'list'
-                ? 'brand-gradient shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
+              settingsViewMode === "list"
+                ? "brand-gradient shadow-md"
+                : "text-slate-400 hover:text-slate-200"
             }`}
             title="Compact list view for all settings sections"
           >
@@ -623,58 +877,83 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {/* PERSONALIZATION: branding, CoS name, logos, theme, profile + keys */}
-      {subTab === 'general' && (
+      {subTab === "general" && (
         <div className="space-y-4">
-          <div className="glass-panel p-5 rounded-2xl border border-indigo-500/30 space-y-4">
+          <div className="glass-panel p-5 rounded-2xl border brand-border space-y-4">
             <div className="border-b border-slate-800 pb-3">
               <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-indigo-400" />
+                <Sparkles className="w-4 h-4 brand-text" />
                 Branding & Chief of Staff
               </h3>
               <p className="text-xs text-slate-400">
-                Name your workspace and floating AI. Capabilities (skills, connectors, models) stay on the other tabs.
+                Name your workspace and floating AI. Capabilities (skills,
+                connectors, models) stay on the other tabs.
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-400">Workspace name</label>
+                <label className="text-[11px] font-semibold text-slate-400">
+                  Workspace name
+                </label>
                 <input
                   type="text"
-                  value={formData.workspaceName || ''}
-                  onChange={(e) => setFormData({ ...formData, workspaceName: e.target.value })}
+                  value={formData.workspaceName || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, workspaceName: e.target.value })
+                  }
                   placeholder="Command Center"
                   className="w-full px-3 py-2 rounded-xl glass-input text-xs"
                 />
-                <p className="text-[10px] text-slate-500">Shown in the top header and sidebar (replaces “Head of Product…”).</p>
+                <p className="text-[10px] text-slate-500">
+                  Shown in the top header and sidebar (replaces “Head of
+                  Product…”).
+                </p>
               </div>
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-400">Chief of Staff AI name</label>
+                <label className="text-[11px] font-semibold text-slate-400">
+                  Chief of Staff AI name
+                </label>
                 <input
                   type="text"
-                  value={formData.chiefOfStaffName || ''}
-                  onChange={(e) => setFormData({ ...formData, chiefOfStaffName: e.target.value })}
+                  value={formData.chiefOfStaffName || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      chiefOfStaffName: e.target.value,
+                    })
+                  }
                   placeholder="Atlas"
                   className="w-full px-3 py-2 rounded-xl glass-input text-xs"
                 />
-                <p className="text-[10px] text-slate-500">Used by the floating panel and the minimized header chip.</p>
+                <p className="text-[10px] text-slate-500">
+                  Used by the floating panel and the minimized header chip.
+                </p>
               </div>
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-400">Tagline / badge</label>
+                <label className="text-[11px] font-semibold text-slate-400">
+                  Tagline / badge
+                </label>
                 <input
                   type="text"
-                  value={formData.tagline || ''}
-                  onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
+                  value={formData.tagline || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, tagline: e.target.value })
+                  }
                   placeholder="Execution Co-Pilot"
                   className="w-full px-3 py-2 rounded-xl glass-input text-xs"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-400">Personal touch</label>
+                <label className="text-[11px] font-semibold text-slate-400">
+                  Personal touch
+                </label>
                 <input
                   type="text"
-                  value={formData.personalTouch || ''}
-                  onChange={(e) => setFormData({ ...formData, personalTouch: e.target.value })}
+                  value={formData.personalTouch || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, personalTouch: e.target.value })
+                  }
                   placeholder="e.g. Built for quiet focus mornings"
                   className="w-full px-3 py-2 rounded-xl glass-input text-xs"
                 />
@@ -683,35 +962,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
               <div className="space-y-2 p-3 rounded-xl border border-slate-800 glass-card">
-                <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                <span className="text-xs font-bold brand-text flex items-center gap-1.5">
                   <ImagePlus className="w-3.5 h-3.5" />
                   Primary logo
                 </span>
-                <p className="text-[10px] text-slate-500">Header wordmark. PNG / SVG / JPEG under ~600KB.</p>
+                <p className="text-[10px] text-slate-500">
+                  Header wordmark. PNG / SVG / JPEG under ~600KB.
+                </p>
                 {formData.logoDataUrl ? (
-                  <img src={formData.logoDataUrl} alt="Logo preview" className="h-10 w-auto max-w-full object-contain rounded" />
+                  <img
+                    src={formData.logoDataUrl}
+                    alt="Logo preview"
+                    className="h-10 w-auto max-w-full object-contain rounded"
+                  />
                 ) : (
                   <div className="h-10 rounded-lg border border-dashed border-slate-700 flex items-center justify-center text-[10px] text-slate-500">
                     No logo yet
                   </div>
                 )}
                 <div className="flex gap-2">
-                  <label className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold cursor-pointer">
+                  <label className="px-3 py-1.5 rounded-lg brand-button text-[11px] font-semibold cursor-pointer">
                     Upload
                     <input
                       type="file"
                       accept="image/*"
                       className="hidden"
                       onChange={(e) => {
-                        readImageAsDataUrl(e.target.files?.[0] ?? null, 'logoDataUrl');
-                        e.target.value = '';
+                        readImageAsDataUrl(
+                          e.target.files?.[0] ?? null,
+                          "logoDataUrl",
+                        );
+                        e.target.value = "";
                       }}
                     />
                   </label>
                   {formData.logoDataUrl && (
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, logoDataUrl: '' })}
+                      onClick={() =>
+                        setFormData({ ...formData, logoDataUrl: "" })
+                      }
                       className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-[11px] font-semibold"
                     >
                       Remove
@@ -721,35 +1011,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               <div className="space-y-2 p-3 rounded-xl border border-slate-800 glass-card">
-                <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                <span className="text-xs font-bold brand-text-secondary flex items-center gap-1.5">
                   <ImagePlus className="w-3.5 h-3.5" />
                   Mark / AI avatar
                 </span>
-                <p className="text-[10px] text-slate-500">Compact icon for sidebar and the CoS chip.</p>
+                <p className="text-[10px] text-slate-500">
+                  Compact icon for sidebar and the CoS chip.
+                </p>
                 {formData.markDataUrl ? (
-                  <img src={formData.markDataUrl} alt="Mark preview" className="h-10 w-10 object-cover rounded-lg" />
+                  <img
+                    src={formData.markDataUrl}
+                    alt="Mark preview"
+                    className="h-10 w-10 object-cover rounded-lg"
+                  />
                 ) : (
                   <div className="h-10 w-10 rounded-lg border border-dashed border-slate-700 flex items-center justify-center text-[10px] text-slate-500">
                     —
                   </div>
                 )}
                 <div className="flex gap-2">
-                  <label className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-semibold cursor-pointer">
+                  <label className="px-3 py-1.5 rounded-lg brand-secondary-fill text-[11px] font-semibold cursor-pointer">
                     Upload
                     <input
                       type="file"
                       accept="image/*"
                       className="hidden"
                       onChange={(e) => {
-                        readImageAsDataUrl(e.target.files?.[0] ?? null, 'markDataUrl');
-                        e.target.value = '';
+                        readImageAsDataUrl(
+                          e.target.files?.[0] ?? null,
+                          "markDataUrl",
+                        );
+                        e.target.value = "";
                       }}
                     />
                   </label>
                   {formData.markDataUrl && (
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, markDataUrl: '' })}
+                      onClick={() =>
+                        setFormData({ ...formData, markDataUrl: "" })
+                      }
                       className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-[11px] font-semibold"
                     >
                       Remove
@@ -758,7 +1059,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
             </div>
-            {logoError && <p className="text-[11px] text-rose-400 font-medium">{logoError}</p>}
+            {logoError && (
+              <p className="text-[11px] text-rose-400 font-medium">
+                {logoError}
+              </p>
+            )}
           </div>
 
           {/* Appearance: light / dark / system */}
@@ -767,16 +1072,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
                 <Sun className="w-4 h-4 text-amber-400" />
                 Appearance
-                <span className="text-[10px] font-bold uppercase tracking-wider brand-text">60% dominant</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider brand-text">
+                  60% dominant
+                </span>
               </h3>
               <p className="text-xs text-slate-400">
-                Canvas and neutrals (backgrounds, cards, body text). This is your 60% dominant layer —
-                light, dark, or match the OS.
+                Canvas and neutrals (backgrounds, cards, body text). This is
+                your 60% dominant layer — light, dark, or match the OS.
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {themeOptions.map((opt) => {
-                const selected = (formData.theme || 'system') === opt.id;
+                const selected = (formData.theme || "system") === opt.id;
                 return (
                   <button
                     key={opt.id}
@@ -784,14 +1091,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     onClick={() => applyThemeChoice(opt.id)}
                     className={`p-4 rounded-xl border text-left transition-all ${
                       selected
-                        ? 'brand-border brand-bg-soft brand-ring'
-                        : 'border-slate-800 glass-card hover:border-[var(--brand-accent-border)]'
+                        ? "brand-border brand-bg-soft brand-ring"
+                        : "border-slate-800 glass-card hover:border-[var(--brand-accent-border)]"
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={selected ? 'brand-text' : 'text-slate-400'}>{opt.icon}</span>
-                      <span className="text-sm font-bold text-slate-100">{opt.label}</span>
-                      {selected && <Check className="w-3.5 h-3.5 brand-text ml-auto" />}
+                      <span
+                        className={selected ? "brand-text" : "text-slate-400"}
+                      >
+                        {opt.icon}
+                      </span>
+                      <span className="text-sm font-bold text-slate-100">
+                        {opt.label}
+                      </span>
+                      {selected && (
+                        <Check className="w-3.5 h-3.5 brand-text ml-auto" />
+                      )}
                     </div>
                     <p className="text-[11px] text-slate-400">{opt.hint}</p>
                   </button>
@@ -814,8 +1129,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     onClick={() => setShowPaletteHelp((open) => !open)}
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-all ${
                       showPaletteHelp
-                        ? 'brand-border brand-bg-soft brand-text'
-                        : 'border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
+                        ? "brand-border brand-bg-soft brand-text"
+                        : "border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500"
                     }`}
                     aria-expanded={showPaletteHelp}
                     aria-controls="palette-help-panel"
@@ -826,7 +1141,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </button>
                 </div>
                 <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-                  Choose a preset or edit hex values. Click a color swatch to open the precision color picker.
+                  Choose a preset or edit hex values. Click a color swatch to
+                  open the precision color picker.
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
@@ -835,35 +1151,39 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   onClick={generateCustomPalette}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold shadow-sm transition-all brand-ring hover:opacity-95"
                   style={{
-                    backgroundImage: `linear-gradient(90deg, ${formData.accentColor || '#6366F1'}, ${formData.accentSecondary || '#9333EA'})`,
-                    color: formData.primaryContrastColor || '#FFFFFF',
-                    borderColor: 'var(--brand-accent-border)',
+                    backgroundImage: `linear-gradient(90deg, ${formData.accentColor || "#FDA700"}, ${formData.accentSecondary || "#02295B"})`,
+                    color: formData.primaryContrastColor || "#02295B",
+                    borderColor: "var(--brand-accent-border)",
                   }}
                   title="Generate a random custom primary + secondary palette"
                 >
                   <Wand2
                     className="w-3.5 h-3.5 shrink-0"
-                    style={{ color: formData.primaryContrastColor || '#FFFFFF' }}
+                    style={{
+                      color: formData.primaryContrastColor || "#02295B",
+                    }}
                   />
                   <span>Generate my own custom palette</span>
                   <span
                     className="ml-0.5 h-2.5 w-2.5 rounded-full border shrink-0"
                     style={{
-                      backgroundColor: formData.primaryFontColor || '#818CF8',
-                      borderColor: formData.primaryContrastColor || '#FFFFFF',
+                      backgroundColor: formData.primaryFontColor || "#02295B",
+                      borderColor: formData.primaryContrastColor || "#FFFFFF",
                     }}
                     title="Primary font"
                   />
                   <span
                     className="h-2.5 w-2.5 rounded-full border shrink-0"
                     style={{
-                      backgroundColor: formData.secondaryFontColor || '#C084FC',
-                      borderColor: formData.secondaryContrastColor || '#FFFFFF',
+                      backgroundColor: formData.secondaryFontColor || "#333F3F",
+                      borderColor: formData.secondaryContrastColor || "#D6D6D6",
                     }}
                     title="Secondary font"
                   />
                 </button>
-                <span className="px-3 py-1.5 rounded-lg brand-badge text-xs font-bold">Primary</span>
+                <span className="px-3 py-1.5 rounded-lg brand-badge text-xs font-bold">
+                  Primary
+                </span>
                 <span className="px-3 py-1.5 rounded-lg brand-badge-secondary text-xs font-bold">
                   Secondary
                 </span>
@@ -882,12 +1202,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h4 className="text-sm font-bold text-slate-100">How to build a great app palette</h4>
+                    <h4 className="text-sm font-bold text-slate-100">
+                      How to build a great app palette
+                    </h4>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                      A strong palette follows the <span className="text-slate-200 font-semibold">60-30-10 rule</span>
-                      {' '}(60% dominant background, 30% secondary surfaces/cards, and 10% accent highlights or
-                      call-to-actions), combined with <span className="text-slate-200 font-semibold">2 to 3 core colors</span>
-                      {' '}plus neutrals.
+                      A strong palette follows the{" "}
+                      <span className="text-slate-200 font-semibold">
+                        60-30-10 rule
+                      </span>{" "}
+                      (60% dominant background, 30% secondary surfaces/cards,
+                      and 10% accent highlights or call-to-actions), combined
+                      with{" "}
+                      <span className="text-slate-200 font-semibold">
+                        2 to 3 core colors
+                      </span>{" "}
+                      plus neutrals.
                     </p>
                   </div>
                   <button
@@ -907,24 +1236,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {[
                       {
-                        share: '60%',
-                        title: 'Dominant (Appearance)',
-                        body: 'Light / Dark / System above sets canvas neutrals — backgrounds, cards, and body text.',
+                        share: "60%",
+                        title: "Dominant (Appearance)",
+                        body: "Light / Dark / System above sets canvas neutrals — backgrounds, cards, and body text.",
                       },
                       {
-                        share: '30%',
-                        title: 'Secondary (+ font & contrast)',
-                        body: 'Supporting fill color, contrast text on that fill, and secondary font tint on neutrals.',
+                        share: "30%",
+                        title: "Secondary (+ font & contrast)",
+                        body: "Supporting fill color, contrast text on that fill, and secondary font tint on neutrals.",
                       },
                       {
-                        share: '10%',
-                        title: 'Primary (+ font & contrast)',
-                        body: 'CTA / active-nav fill, contrast on that fill, and primary font tint on neutrals.',
+                        share: "10%",
+                        title: "Primary (+ font & contrast)",
+                        body: "CTA / active-nav fill, contrast on that fill, and primary font tint on neutrals.",
                       },
                       {
-                        share: '—',
-                        title: 'Contrast vs Font',
-                        body: 'Contrast = text on the colored fill. Font = accent-tinted text on neutrals. They can match or diverge.',
+                        share: "—",
+                        title: "Contrast vs Font",
+                        body: "Contrast = text on the colored fill. Font = accent-tinted text on neutrals. They can match or diverge.",
                       },
                     ].map((item) => (
                       <div
@@ -932,21 +1261,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         className="rounded-xl border border-slate-700/70 bg-slate-950/40 p-3 space-y-1"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold brand-text tabular-nums">{item.share}</span>
-                          <span className="text-xs font-bold text-slate-100">{item.title}</span>
+                          <span className="text-[10px] font-bold brand-text tabular-nums">
+                            {item.share}
+                          </span>
+                          <span className="text-xs font-bold text-slate-100">
+                            {item.title}
+                          </span>
                         </div>
-                        <p className="text-[11px] text-slate-400 leading-relaxed">{item.body}</p>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          {item.body}
+                        </p>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  <span className="text-slate-300 font-semibold">Appearance</span> = 60% dominant neutrals.{' '}
-                  <span className="text-slate-300 font-semibold">Secondary</span> = 30% supporting fills + font on
-                  neutrals. <span className="text-slate-300 font-semibold">Primary</span> = 10% CTAs. For each role,
-                  Contrast is text <em>on</em> the fill; Font is tinted text <em>on</em> neutrals (can match contrast
-                  or diverge).
+                  <span className="text-slate-300 font-semibold">
+                    Appearance
+                  </span>{" "}
+                  = 60% dominant neutrals.{" "}
+                  <span className="text-slate-300 font-semibold">
+                    Secondary
+                  </span>{" "}
+                  = 30% supporting fills + font on neutrals.{" "}
+                  <span className="text-slate-300 font-semibold">Primary</span>{" "}
+                  = 10% CTAs. For each role, Contrast is text <em>on</em> the
+                  fill; Font is tinted text <em>on</em> neutrals (can match
+                  contrast or diverge).
                 </p>
               </div>
             )}
@@ -957,39 +1299,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </label>
               <div
                 className={
-                  settingsViewMode === 'grid'
-                    ? 'mt-2 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2'
-                    : 'mt-2 space-y-2'
+                  settingsViewMode === "grid"
+                    ? "mt-2 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2"
+                    : "mt-2 space-y-2"
                 }
               >
                 {BRAND_PRESETS.map((preset) => {
-                  const selected = (formData.brandPreset || 'indigo') === preset.id;
+                  const selected =
+                    (formData.brandPreset || "executive") === preset.id;
                   return (
                     <button
                       key={preset.id}
                       type="button"
                       onClick={() => applyBrandPreset(preset.id)}
                       className={`${
-                        settingsViewMode === 'list'
-                          ? 'p-3 flex items-center gap-3 w-full'
-                          : 'p-3'
+                        settingsViewMode === "list"
+                          ? "p-3 flex items-center gap-3 w-full"
+                          : "p-3"
                       } rounded-xl border text-left transition-all ${
-                        selected ? 'brand-border brand-bg-soft brand-ring' : 'border-slate-800 glass-card'
+                        selected
+                          ? "brand-border brand-bg-soft brand-ring"
+                          : "border-slate-800 glass-card"
                       }`}
                     >
                       <div
                         className={
-                          settingsViewMode === 'list'
-                            ? 'h-2.5 w-16 rounded-full shrink-0'
-                            : 'h-2.5 w-full rounded-full mb-2'
+                          settingsViewMode === "list"
+                            ? "h-2.5 w-16 rounded-full shrink-0"
+                            : "h-2.5 w-full rounded-full mb-2"
                         }
                         style={{
                           background: `linear-gradient(90deg, ${preset.accent}, ${preset.secondary})`,
                         }}
                       />
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-100">{preset.label}</p>
-                        <p className="text-[10px] text-slate-500 leading-snug">{preset.description}</p>
+                        <p className="text-xs font-bold text-slate-100">
+                          {preset.label}
+                        </p>
+                        <p className="text-[10px] text-slate-500 leading-snug">
+                          {preset.description}
+                        </p>
                       </div>
                     </button>
                   );
@@ -1002,51 +1351,62 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="rounded-xl border border-slate-800 bg-slate-950/30 overflow-hidden">
                 <div className="px-3 sm:px-4 py-2.5 border-b border-slate-800 flex items-center justify-between gap-2">
                   <div>
-                    <p className="text-xs font-bold text-slate-100">Primary · 10% accent</p>
-                    <p className="text-[10px] text-slate-500">CTAs, active nav, critical highlights</p>
+                    <p className="text-xs font-bold text-slate-100">
+                      Primary · 10% accent
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      CTAs, active nav, critical highlights
+                    </p>
                   </div>
-                  <span className="text-[10px] font-bold brand-text uppercase tracking-wider">10%</span>
+                  <span className="text-[10px] font-bold brand-text uppercase tracking-wider">
+                    10%
+                  </span>
                 </div>
                 <div className="px-3 sm:px-4">
                   <ColorHexRow
                     label="Color"
-                    value={formData.accentColor || '#6366F1'}
-                    fallback="#6366F1"
-                    onChange={(hex) => applyBrandColor('accentColor', hex)}
+                    value={formData.accentColor || "#FDA700"}
+                    fallback="#FDA700"
+                    onChange={(hex) => applyBrandColor("accentColor", hex)}
                   />
                   <ColorHexRow
                     label="Contrast"
                     value={
                       formData.primaryContrastColor ||
-                      contrastOnAccent(formData.accentColor || '#6366F1')
+                      contrastOnAccent(formData.accentColor || "#FDA700")
                     }
-                    fallback="#FFFFFF"
-                    onChange={(hex) => applyBrandColor('primaryContrastColor', hex)}
+                    fallback="#02295B"
+                    onChange={(hex) =>
+                      applyBrandColor("primaryContrastColor", hex)
+                    }
                   />
                   <ColorHexRow
                     label="Font"
                     value={
                       formData.primaryFontColor ||
-                      suggestFontColorFromAccent(formData.accentColor || '#6366F1')
+                      suggestFontColorFromAccent(
+                        formData.accentColor || "#FDA700",
+                      )
                     }
-                    fallback="#818CF8"
-                    onChange={(hex) => applyBrandColor('primaryFontColor', hex)}
+                    fallback="#02295B"
+                    onChange={(hex) => applyBrandColor("primaryFontColor", hex)}
                   />
                 </div>
                 <div className="px-3 sm:px-4 pb-3 flex flex-wrap gap-2 items-center">
                   <span className="text-[10px] text-slate-500">
-                    Font {formData.primaryFontLinked !== false ? 'linked' : 'custom'}
+                    Font{" "}
+                    {formData.primaryFontLinked !== false ? "linked" : "custom"}
                   </span>
                   <button
                     type="button"
-                    onClick={() => relinkPrimaryFont('tint')}
+                    onClick={() => relinkPrimaryFont("tint")}
                     className="text-[10px] font-bold brand-text hover:underline"
                   >
                     Sync tint from color
                   </button>
                   <button
                     type="button"
-                    onClick={() => relinkPrimaryFont('contrast')}
+                    onClick={() => relinkPrimaryFont("contrast")}
                     className="text-[10px] font-bold brand-text hover:underline"
                   >
                     Match contrast
@@ -1058,51 +1418,66 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="rounded-xl border border-slate-800 bg-slate-950/30 overflow-hidden">
                 <div className="px-3 sm:px-4 py-2.5 border-b border-slate-800 flex items-center justify-between gap-2">
                   <div>
-                    <p className="text-xs font-bold text-slate-100">Secondary · 30% support</p>
-                    <p className="text-[10px] text-slate-500">Supporting fills, gradient end, soft chips</p>
+                    <p className="text-xs font-bold text-slate-100">
+                      Secondary · 30% support
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      Supporting fills, gradient end, soft chips
+                    </p>
                   </div>
-                  <span className="text-[10px] font-bold brand-text-secondary uppercase tracking-wider">30%</span>
+                  <span className="text-[10px] font-bold brand-text-secondary uppercase tracking-wider">
+                    30%
+                  </span>
                 </div>
                 <div className="px-3 sm:px-4">
                   <ColorHexRow
                     label="Color"
-                    value={formData.accentSecondary || '#9333EA'}
-                    fallback="#9333EA"
-                    onChange={(hex) => applyBrandColor('accentSecondary', hex)}
+                    value={formData.accentSecondary || "#02295B"}
+                    fallback="#02295B"
+                    onChange={(hex) => applyBrandColor("accentSecondary", hex)}
                   />
                   <ColorHexRow
                     label="Contrast"
                     value={
                       formData.secondaryContrastColor ||
-                      contrastOnAccent(formData.accentSecondary || '#9333EA')
+                      contrastOnAccent(formData.accentSecondary || "#02295B")
                     }
-                    fallback="#FFFFFF"
-                    onChange={(hex) => applyBrandColor('secondaryContrastColor', hex)}
+                    fallback="#D6D6D6"
+                    onChange={(hex) =>
+                      applyBrandColor("secondaryContrastColor", hex)
+                    }
                   />
                   <ColorHexRow
                     label="Font"
                     value={
                       formData.secondaryFontColor ||
-                      suggestFontColorFromAccent(formData.accentSecondary || '#9333EA')
+                      suggestFontColorFromAccent(
+                        formData.accentSecondary || "#02295B",
+                      )
                     }
-                    fallback="#C084FC"
-                    onChange={(hex) => applyBrandColor('secondaryFontColor', hex)}
+                    fallback="#333F3F"
+                    onChange={(hex) =>
+                      applyBrandColor("secondaryFontColor", hex)
+                    }
                   />
                 </div>
                 <div className="px-3 sm:px-4 pb-3 flex flex-wrap gap-2 items-center">
                   <span className="text-[10px] text-slate-500">
-                    Font {formData.secondaryFontLinked !== false ? 'linked' : 'custom'}
+                    Font{" "}
+                    {formData.secondaryFontLinked !== false
+                      ? "linked"
+                      : "custom"}
                   </span>
                   <button
                     type="button"
-                    onClick={() => relinkSecondaryFont('tint')}
+                    onClick={() => relinkSecondaryFont("tint")}
                     className="text-[10px] font-bold brand-text-secondary hover:underline"
                   >
                     Sync tint from color
                   </button>
                   <button
                     type="button"
-                    onClick={() => relinkSecondaryFont('contrast')}
+                    onClick={() => relinkSecondaryFont("contrast")}
                     className="text-[10px] font-bold brand-text-secondary hover:underline"
                   >
                     Match contrast
@@ -1124,20 +1499,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div className="rounded-lg brand-button p-2.5 text-center">
-                  <p className="text-[9px] font-bold uppercase opacity-80">Primary fill</p>
+                  <p className="text-[9px] font-bold uppercase opacity-80">
+                    Primary fill
+                  </p>
                   <p className="text-[11px] font-bold mt-0.5">Contrast</p>
                 </div>
                 <div className="rounded-lg brand-secondary-fill p-2.5 text-center">
-                  <p className="text-[9px] font-bold uppercase opacity-80">Secondary fill</p>
+                  <p className="text-[9px] font-bold uppercase opacity-80">
+                    Secondary fill
+                  </p>
                   <p className="text-[11px] font-bold mt-0.5">Contrast</p>
                 </div>
                 <div className="rounded-lg border border-slate-700 bg-[var(--glass-card)] p-2.5 text-center">
-                  <p className="text-[9px] font-bold uppercase text-slate-500">On neutrals</p>
-                  <p className="text-[11px] font-bold brand-text mt-0.5">Primary font</p>
+                  <p className="text-[9px] font-bold uppercase text-slate-500">
+                    On neutrals
+                  </p>
+                  <p className="text-[11px] font-bold brand-text mt-0.5">
+                    Primary font
+                  </p>
                 </div>
                 <div className="rounded-lg border border-slate-700 bg-[var(--glass-card)] p-2.5 text-center">
-                  <p className="text-[9px] font-bold uppercase text-slate-500">On neutrals</p>
-                  <p className="text-[11px] font-bold brand-text-secondary mt-0.5">Secondary font</p>
+                  <p className="text-[9px] font-bold uppercase text-slate-500">
+                    On neutrals
+                  </p>
+                  <p className="text-[11px] font-bold brand-text-secondary mt-0.5">
+                    Secondary font
+                  </p>
                 </div>
               </div>
 
@@ -1145,21 +1532,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="flex items-center justify-between gap-3 px-3 py-2.5 border-b border-slate-800 bg-[var(--header-bg)]">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="h-7 w-7 rounded-lg brand-gradient flex items-center justify-center text-[10px] font-bold shrink-0">
-                      {(formData.workspaceName || 'CC').slice(0, 2).toUpperCase()}
+                      {(formData.workspaceName || "CC")
+                        .slice(0, 2)
+                        .toUpperCase()}
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-slate-100 truncate">
-                        {formData.workspaceName || 'Command Center'}
+                        {formData.workspaceName || "Command Center"}
                       </p>
                       <p className="text-[10px] truncate">
-                        <span className="brand-text">{formData.userTitle || 'Head of Product'}</span>
+                        <span className="brand-text">
+                          {formData.userTitle || "Head of Product"}
+                        </span>
                         <span className="text-slate-500"> · </span>
-                        <span className="brand-text-secondary">secondary label</span>
+                        <span className="brand-text-secondary">
+                          secondary label
+                        </span>
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="px-2 py-1 rounded-lg brand-badge text-[10px] font-bold">Primary</span>
+                    <span className="px-2 py-1 rounded-lg brand-badge text-[10px] font-bold">
+                      Primary
+                    </span>
                     <span className="px-2 py-1 rounded-lg brand-badge-secondary text-[10px] font-bold">
                       Secondary
                     </span>
@@ -1173,11 +1568,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <div className="px-2 py-1.5 rounded-lg brand-bg-secondary-soft brand-border-secondary border text-[10px] brand-text-secondary font-semibold">
                       Secondary chip
                     </div>
-                    <div className="px-2 py-1.5 rounded-lg text-[10px] text-slate-400">Idle (60%)</div>
+                    <div className="px-2 py-1.5 rounded-lg text-[10px] text-slate-400">
+                      Idle (60%)
+                    </div>
                   </aside>
                   <div className="p-3 space-y-2.5">
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" className="px-3 py-1.5 rounded-lg brand-button text-[10px] font-bold">
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-lg brand-button text-[10px] font-bold"
+                      >
                         Primary CTA
                       </button>
                       <button
@@ -1188,15 +1588,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </button>
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      <span className="brand-text font-semibold">Primary font</span>
-                      {' · '}
-                      <span className="brand-text-secondary font-semibold">Secondary font</span>
-                      {' · '}
-                      <span className="text-indigo-400 font-semibold">indigo remap</span>
-                      {' · '}
-                      <span className="text-purple-400 font-semibold">purple remap</span>
+                      <span className="brand-text font-semibold">
+                        Primary font
+                      </span>
+                      {" · "}
+                      <span className="brand-text-secondary font-semibold">
+                        Secondary font
+                      </span>
+                      {" · "}
+                      <span className="brand-text font-semibold">
+                        brand accent
+                      </span>
+                      {" · "}
+                      <span className="brand-text-secondary font-semibold">
+                        brand secondary
+                      </span>
                     </p>
-                    <div className="h-8 rounded-lg brand-gradient brand-ring" title="Gradient surface" />
+                    <div
+                      className="h-8 rounded-lg brand-gradient brand-ring"
+                      title="Gradient surface"
+                    />
                   </div>
                 </div>
               </div>
@@ -1204,21 +1615,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-[11px] font-semibold text-slate-400">Brand intensity</label>
+                <label className="text-[11px] font-semibold text-slate-400">
+                  Brand intensity
+                </label>
                 <div className="flex gap-1.5">
-                  {([
-                    { id: 'soft', label: 'Soft' },
-                    { id: 'balanced', label: 'Balanced' },
-                    { id: 'bold', label: 'Bold' },
-                  ] as { id: BrandIntensity; label: string }[]).map((opt) => {
-                    const selected = (formData.brandIntensity || 'balanced') === opt.id;
+                  {(
+                    [
+                      { id: "soft", label: "Soft" },
+                      { id: "balanced", label: "Balanced" },
+                      { id: "bold", label: "Bold" },
+                    ] as { id: BrandIntensity; label: string }[]
+                  ).map((opt) => {
+                    const selected =
+                      (formData.brandIntensity || "balanced") === opt.id;
                     return (
                       <button
                         key={opt.id}
                         type="button"
-                        onClick={() => persistPartial({ brandIntensity: opt.id })}
+                        onClick={() =>
+                          persistPartial({ brandIntensity: opt.id })
+                        }
                         className={`flex-1 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                          selected ? 'brand-gradient shadow-md' : 'bg-slate-800/60 text-slate-400 hover:text-slate-200'
+                          selected
+                            ? "brand-gradient shadow-md"
+                            : "bg-slate-800/60 text-slate-400 hover:text-slate-200"
                         }`}
                       >
                         {opt.label}
@@ -1228,46 +1648,70 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[11px] font-semibold text-slate-400">Gradient accents</label>
+                <label className="text-[11px] font-semibold text-slate-400">
+                  Gradient accents
+                </label>
                 <button
                   type="button"
-                  onClick={() => persistPartial({ useBrandGradient: !formData.useBrandGradient })}
+                  onClick={() =>
+                    persistPartial({
+                      useBrandGradient: !formData.useBrandGradient,
+                    })
+                  }
                   className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-between ${
                     formData.useBrandGradient !== false
-                      ? 'brand-border brand-bg-soft brand-text'
-                      : 'border-slate-700 text-slate-400'
+                      ? "brand-border brand-bg-soft brand-text"
+                      : "border-slate-700 text-slate-400"
                   }`}
                 >
-                  <span>{formData.useBrandGradient !== false ? 'Two-tone gradient ON' : 'Solid accent (gradient OFF)'}</span>
-                  <Check className={`w-3.5 h-3.5 ${formData.useBrandGradient !== false ? 'opacity-100' : 'opacity-0'}`} />
+                  <span>
+                    {formData.useBrandGradient !== false
+                      ? "Two-tone gradient ON"
+                      : "Solid accent (gradient OFF)"}
+                  </span>
+                  <Check
+                    className={`w-3.5 h-3.5 ${formData.useBrandGradient !== false ? "opacity-100" : "opacity-0"}`}
+                  />
                 </button>
-                <p className="text-[10px] text-slate-500">Applies to active nav items and primary brand surfaces.</p>
+                <p className="text-[10px] text-slate-500">
+                  Applies to active nav items and primary brand surfaces.
+                </p>
               </div>
             </div>
 
             <div className="space-y-2 pt-1 border-t border-slate-800">
-              <label className="text-[11px] font-semibold text-slate-400">Typography</label>
+              <label className="text-[11px] font-semibold text-slate-400">
+                Typography
+              </label>
               <p className="text-[10px] text-slate-500">
-                Font pack is applied to body text, buttons, inputs, and headings when you save personalization.
+                Font pack is applied to body text, buttons, inputs, and headings
+                when you save personalization.
               </p>
               <div
                 className={
-                  settingsViewMode === 'grid'
-                    ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2'
-                    : 'space-y-2'
+                  settingsViewMode === "grid"
+                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"
+                    : "space-y-2"
                 }
               >
                 {FONT_PRESETS.map((pack) => {
-                  const selected = (formData.fontPreset || 'inter-outfit') === pack.id;
+                  const selected =
+                    (formData.fontPreset || "inter-outfit") === pack.id;
                   return (
                     <button
                       key={pack.id}
                       type="button"
-                      onClick={() => persistPartial({ fontPreset: pack.id as FontPresetId })}
+                      onClick={() =>
+                        persistPartial({ fontPreset: pack.id as FontPresetId })
+                      }
                       className={`p-3 rounded-xl border text-left transition-all ${
-                        settingsViewMode === 'list' ? 'flex items-center justify-between gap-3 w-full' : ''
+                        settingsViewMode === "list"
+                          ? "flex items-center justify-between gap-3 w-full"
+                          : ""
                       } ${
-                        selected ? 'brand-border brand-bg-soft brand-ring' : 'border-slate-800 glass-card'
+                        selected
+                          ? "brand-border brand-bg-soft brand-ring"
+                          : "border-slate-800 glass-card"
                       }`}
                     >
                       <div className="min-w-0">
@@ -1277,11 +1721,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         >
                           {pack.label}
                         </p>
-                        <p className="text-[10px] text-slate-500" style={{ fontFamily: pack.body }}>
+                        <p
+                          className="text-[10px] text-slate-500"
+                          style={{ fontFamily: pack.body }}
+                        >
                           {pack.description}
                         </p>
                       </div>
-                      {selected && settingsViewMode === 'list' && (
+                      {selected && settingsViewMode === "list" && (
                         <Check className="w-4 h-4 brand-text shrink-0" />
                       )}
                     </button>
@@ -1294,27 +1741,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
             <div className="border-b border-slate-800 pb-3">
               <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
-                <User className="w-4 h-4 text-indigo-400" />
+                <User className="w-4 h-4 brand-text" />
                 Profile
               </h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-400">Full name</label>
+                <label className="text-[11px] font-semibold text-slate-400">
+                  Full name
+                </label>
                 <input
                   type="text"
                   value={formData.userName}
-                  onChange={(e) => setFormData({ ...formData, userName: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, userName: e.target.value })
+                  }
                   placeholder="Your Full Name..."
                   className="w-full px-3 py-2 rounded-xl glass-input text-xs"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-400">Title</label>
+                <label className="text-[11px] font-semibold text-slate-400">
+                  Title
+                </label>
                 <input
                   type="text"
                   value={formData.userTitle}
-                  onChange={(e) => setFormData({ ...formData, userTitle: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, userTitle: e.target.value })
+                  }
                   placeholder="Your Leadership Title..."
                   className="w-full px-3 py-2 rounded-xl glass-input text-xs"
                 />
@@ -1325,37 +1780,54 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
             <div className="border-b border-slate-800 pb-3">
               <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
-                <Key className="w-4 h-4 text-cyan-400" />
+                <Key className="w-4 h-4 brand-text" />
                 Integration keys
               </h3>
-              <p className="text-xs text-slate-400">Capabilities stay the same — these keys are stored locally until wired live.</p>
+              <p className="text-xs text-slate-400">
+                Prefer <strong className="brand-text">Settings → Connectors</strong> to
+                define tools (native, MCP, iPaaS, assistants, direct API). Legacy
+                Notion keys below migrate into the Notion connector when present.
+              </p>
             </div>
 
             <div className="space-y-2">
-              <span className="text-xs font-bold text-cyan-400">Microsoft Graph / Outlook</span>
+              <span className="text-xs font-bold brand-text">
+                Microsoft Graph / Outlook
+              </span>
               <input
                 type="text"
                 value={formData.outlookClientId}
-                onChange={(e) => setFormData({ ...formData, outlookClientId: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, outlookClientId: e.target.value })
+                }
                 placeholder="Azure AD Client Application ID..."
                 className="w-full px-3 py-2 rounded-xl glass-input text-xs"
               />
             </div>
 
             <div className="space-y-2">
-              <span className="text-xs font-bold text-emerald-400">Notion</span>
+              <span className="text-xs font-bold brand-text">
+                Notion (legacy — use Connectors tab)
+              </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
                   type="text"
                   value={formData.notionApiKey}
-                  onChange={(e) => setFormData({ ...formData, notionApiKey: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notionApiKey: e.target.value })
+                  }
                   placeholder="Notion Secret API Key (secret_...)"
                   className="w-full px-3 py-2 rounded-xl glass-input text-xs"
                 />
                 <input
                   type="text"
                   value={formData.notionDatabaseId}
-                  onChange={(e) => setFormData({ ...formData, notionDatabaseId: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      notionDatabaseId: e.target.value,
+                    })
+                  }
                   placeholder="Action Database ID..."
                   className="w-full px-3 py-2 rounded-xl glass-input text-xs"
                 />
@@ -1363,19 +1835,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             <div className="space-y-2">
-              <span className="text-xs font-bold text-purple-400">Local / Custom LLM</span>
+              <span className="text-xs font-bold brand-text-secondary">
+                Local / Custom LLM
+              </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
                   type="text"
                   value={formData.customLlmEndpoint}
-                  onChange={(e) => setFormData({ ...formData, customLlmEndpoint: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      customLlmEndpoint: e.target.value,
+                    })
+                  }
                   placeholder="API Endpoint (e.g. http://localhost:11434)"
                   className="w-full px-3 py-2 rounded-xl glass-input text-xs"
                 />
                 <input
                   type="password"
                   value={formData.customLlmApiKey}
-                  onChange={(e) => setFormData({ ...formData, customLlmApiKey: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      customLlmApiKey: e.target.value,
+                    })
+                  }
                   placeholder="API Key (Optional for Ollama / Local)"
                   className="w-full px-3 py-2 rounded-xl glass-input text-xs"
                 />
@@ -1384,7 +1868,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-800">
               <p className="text-[11px] text-slate-500">
-                Save applies brand colors to buttons & accents, loads the selected fonts, and persists the theme.
+                Save applies brand colors to buttons & accents, loads the
+                selected fonts, and persists the theme.
               </p>
               <button
                 type="button"
@@ -1397,7 +1882,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     Colors, buttons & fonts applied
                   </span>
                 ) : (
-                  'Save personalization'
+                  "Save personalization"
                 )}
               </button>
             </div>
@@ -1406,7 +1891,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
 
       {/* WORKSPACE LAYOUT: Command Center panels + left nav (single module order) */}
-      {subTab === 'workspace' && (
+      {subTab === "workspace" && (
         <WorkspaceLayoutSettings
           widgets={settings.widgets}
           activePreset={settings.activePreset}
@@ -1420,7 +1905,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
 
       {/* SUB-TAB: SKILLS & SYSTEM PLUGINS HUB */}
-      {subTab === 'skills' && (
+      {subTab === "skills" && (
         <div className="space-y-6">
           {/* SYNC NOTIFICATION BANNER */}
           {kbSyncMessage && (
@@ -1431,17 +1916,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           )}
 
           {/* SECTION 1: LOCAL SYSTEM DISCOVERED PLUGINS & SKILLS */}
-          <div className="glass-panel p-5 rounded-2xl border border-indigo-500/30 space-y-4">
+          <div className="glass-panel p-5 rounded-2xl border brand-border space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-slate-100 text-base">Local Laptop System Installed Skills & Plugins</h3>
-                  <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold">
+                  <h3 className="font-bold text-slate-100 text-base">
+                    Local Laptop System Installed Skills & Plugins
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full brand-bg-soft brand-text border brand-border text-[10px] font-bold">
                     Scanned from Local Laptop Filesystem
                   </span>
                 </div>
                 <p className="text-xs text-slate-400">
-                  Plugins & Skills detected across Claude, ChatGPT, Perplexity, Gemini, Antigravity SDK, Cursor, & Google AI Studio.
+                  Plugins & Skills detected across Claude, ChatGPT, Perplexity,
+                  Gemini, Antigravity SDK, Cursor, & Google AI Studio.
                 </p>
               </div>
 
@@ -1449,10 +1937,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <button
                   onClick={handleScanSystem}
                   disabled={isScanningSystem}
-                  className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-indigo-600/30 transition-all"
+                  className="px-3.5 py-1.5 rounded-xl brand-button font-bold text-xs flex items-center gap-1.5 brand-ring transition-all"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isScanningSystem ? 'animate-spin' : ''}`} />
-                  <span>{isScanningSystem ? 'Scanning System...' : '🔍 Scan Local Filesystem'}</span>
+                  <RefreshCw
+                    className={`w-3.5 h-3.5 ${isScanningSystem ? "animate-spin" : ""}`}
+                  />
+                  <span>
+                    {isScanningSystem
+                      ? "Scanning System..."
+                      : "🔍 Scan Local Filesystem"}
+                  </span>
                 </button>
               </div>
             </div>
@@ -1464,7 +1958,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   key={src}
                   onClick={() => setSelectedSystemSource(src)}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                    selectedSystemSource === src ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+                    selectedSystemSource === src
+                      ? "brand-button shadow-md"
+                      : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
                   {src}
@@ -1473,16 +1969,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             {/* Discovered System Skills (Grid vs Single-Row List View) */}
-            {settingsViewMode === 'grid' ? (
+            {settingsViewMode === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredSystemSkills.map((sysSkill) => (
                   <div
                     key={sysSkill.id}
-                    className="p-4 rounded-2xl glass-card border border-slate-800 space-y-2 flex flex-col justify-between hover:border-indigo-500/40 transition-all"
+                    className="p-4 rounded-2xl glass-card border border-slate-800 space-y-2 flex flex-col justify-between hover:brand-border transition-all"
                   >
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded-md brand-bg-soft brand-text border brand-border text-[10px] font-bold">
                           {sysSkill.sourceSystem}
                         </span>
                         <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
@@ -1491,12 +1987,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         </span>
                       </div>
 
-                      <h4 className="font-bold text-slate-100 text-sm">{sysSkill.name}</h4>
-                      <p className="text-xs text-slate-300 leading-relaxed">{sysSkill.description}</p>
+                      <h4 className="font-bold text-slate-100 text-sm">
+                        {sysSkill.name}
+                      </h4>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        {sysSkill.description}
+                      </p>
                     </div>
 
                     <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between">
-                      <span className="text-[10px] text-slate-500 font-bold">Local Path:</span>
+                      <span className="text-[10px] text-slate-500 font-bold">
+                        Local Path:
+                      </span>
                       <LocalFilePathBadge path={sysSkill.path} />
                     </div>
                   </div>
@@ -1506,13 +2008,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               /* SINGLE-ROW COMPACT LIST VIEW FOR SYSTEM SKILLS */
               <div className="glass-panel rounded-2xl border border-slate-800 overflow-hidden divide-y divide-slate-800/60">
                 {filteredSystemSkills.map((sysSkill) => (
-                  <div key={sysSkill.id} className="p-3 hover:bg-slate-800/40 transition-all flex items-center justify-between gap-4">
+                  <div
+                    key={sysSkill.id}
+                    className="p-3 hover:bg-slate-800/40 transition-all flex items-center justify-between gap-4"
+                  >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 text-[10px] font-bold shrink-0">
+                      <span className="px-2 py-0.5 rounded-md brand-bg-soft brand-text text-[10px] font-bold shrink-0">
                         {sysSkill.sourceSystem}
                       </span>
-                      <h4 className="font-bold text-slate-100 text-xs shrink-0">{sysSkill.name}</h4>
-                      <p className="text-[11px] text-slate-400 truncate flex-1 min-w-0" title={sysSkill.description}>
+                      <h4 className="font-bold text-slate-100 text-xs shrink-0">
+                        {sysSkill.name}
+                      </h4>
+                      <p
+                        className="text-[11px] text-slate-400 truncate flex-1 min-w-0"
+                        title={sysSkill.description}
+                      >
                         {sysSkill.description}
                       </p>
                     </div>
@@ -1529,13 +2039,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-slate-100 text-base">Custom Executive Skills (SKILL.md)</h3>
-                  
+                  <h3 className="font-bold text-slate-100 text-base">
+                    Custom Executive Skills (SKILL.md)
+                  </h3>
+
                   {/* (i) HELP ICON BUTTON */}
                   <div className="relative">
                     <button
-                      onClick={() => setShowSyncInfoTooltip(!showSyncInfoTooltip)}
-                      className="p-1 rounded-full bg-purple-600/20 text-purple-300 border border-purple-500/40 hover:bg-purple-600/40 transition-all"
+                      onClick={() =>
+                        setShowSyncInfoTooltip(!showSyncInfoTooltip)
+                      }
+                      className="p-1 rounded-full brand-bg-soft brand-text-secondary border brand-border transition-all"
                       title="Click for Storage & Sync Info"
                     >
                       <Info className="w-3.5 h-3.5" />
@@ -1543,39 +2057,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                     {/* TOOLTIP EXPLANATION BOX */}
                     {showSyncInfoTooltip && (
-                      <div className="absolute left-0 top-6 z-40 w-80 p-3.5 rounded-xl glass-panel border border-purple-500/50 bg-obsidian-950/95 text-xs space-y-1.5 shadow-2xl">
+                      <div className="absolute left-0 top-6 z-40 w-80 p-3.5 rounded-xl glass-panel border brand-border bg-obsidian-950/95 text-xs space-y-1.5 shadow-2xl">
                         <div className="flex items-center justify-between border-b border-slate-800 pb-1">
-                          <span className="font-bold text-purple-300 flex items-center gap-1">
+                          <span className="font-bold brand-text-secondary flex items-center gap-1">
                             <Database className="w-3.5 h-3.5" />
                             <span>Persistent Storage & Sync</span>
                           </span>
-                          <button onClick={() => setShowSyncInfoTooltip(false)} className="text-slate-400 hover:text-white">
+                          <button
+                            onClick={() => setShowSyncInfoTooltip(false)}
+                            className="text-slate-400 hover:text-white"
+                          >
                             <X className="w-3 h-3" />
                           </button>
                         </div>
                         <p className="text-[11px] text-slate-200 leading-relaxed">
-                          ℹ️ All newly created or edited skills are automatically saved & upserted to your <strong>Local Laptop Knowledge Base & Storage Engine</strong>. When skills are updated by another tool (Claude, Cursor, Antigravity), changes sync in real-time!
+                          ℹ️ All newly created or edited skills are
+                          automatically saved & upserted to your{" "}
+                          <strong>
+                            Local Laptop Knowledge Base & Storage Engine
+                          </strong>
+                          . When skills are updated by another tool (Claude,
+                          Cursor, Antigravity), changes sync in real-time!
                         </p>
                       </div>
                     )}
                   </div>
                 </div>
-                <p className="text-xs text-slate-400">Create, edit, or auto-generate skills with AI (Gemini Gems & Claude Custom Assistants).</p>
+                <p className="text-xs text-slate-400">
+                  Create, edit, or auto-generate skills with AI (Gemini Gems &
+                  Claude Custom Assistants).
+                </p>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleSyncSkillsToKnowledgeBase}
-                  className="px-3.5 py-1.5 rounded-xl bg-purple-600/30 text-purple-200 border border-purple-500/40 hover:bg-purple-600/50 font-bold text-xs flex items-center gap-1.5 transition-all"
+                  className="px-3.5 py-1.5 rounded-xl brand-secondary-fill border brand-border font-bold text-xs flex items-center gap-1.5 transition-all"
                   title="Upsert & update skills to Knowledge Base"
                 >
-                  <Database className="w-3.5 h-3.5 text-purple-400" />
+                  <Database className="w-3.5 h-3.5 brand-text-secondary" />
                   <span>Sync to Knowledge Base</span>
                 </button>
 
                 <button
                   onClick={handleOpenCreateSkill}
-                  className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-purple-600/30 transition-all"
+                  className="px-3.5 py-1.5 rounded-xl brand-secondary-fill font-bold text-xs flex items-center gap-1.5 shadow-md transition-all"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Create / Build with AI</span>
@@ -1584,19 +2110,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             {/* SKILLS TILES GRID VIEW VS SINGLE-ROW LIST VIEW */}
-            {settingsViewMode === 'grid' ? (
+            {settingsViewMode === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(formData.customSkills || []).map((skill) => (
                   <div
                     key={skill.id}
                     className={`p-5 rounded-2xl glass-card border transition-all space-y-3 ${
-                      skill.enabled ? 'border-purple-500/40 bg-purple-950/10' : 'border-slate-800 opacity-60'
+                      skill.enabled
+                        ? "border-[var(--brand-accent-border)] brand-bg-soft"
+                        : "border-slate-800 opacity-60"
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Zap className="w-5 h-5 text-purple-400" />
-                        <h4 className="font-bold text-slate-100 text-sm">{skill.name}</h4>
+                        <Zap className="w-5 h-5 brand-text-secondary" />
+                        <h4 className="font-bold text-slate-100 text-sm">
+                          {skill.name}
+                        </h4>
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -1605,7 +2135,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs flex items-center gap-1"
                           title="Edit Skill & SKILL.md"
                         >
-                          <Edit3 className="w-3.5 h-3.5 text-purple-400" />
+                          <Edit3 className="w-3.5 h-3.5 brand-text-secondary" />
                           <span>Edit</span>
                         </button>
 
@@ -1613,20 +2143,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           onClick={() => toggleSkill(skill.id)}
                           className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
                             skill.enabled
-                              ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
-                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                              ? "brand-bg-soft brand-text-secondary brand-border"
+                              : "bg-slate-800 text-slate-400 border-slate-700"
                           }`}
                         >
-                          {skill.enabled ? 'Enabled' : 'Disabled'}
+                          {skill.enabled ? "Enabled" : "Disabled"}
                         </button>
                       </div>
                     </div>
 
-                    <p className="text-xs text-slate-300">{skill.description}</p>
+                    <p className="text-xs text-slate-300">
+                      {skill.description}
+                    </p>
 
-                    <div className="p-3 rounded-xl bg-obsidian-950 border border-slate-800 font-mono text-[11px] text-purple-200 overflow-x-auto">
-                      <span className="text-slate-500 font-bold block mb-1">SKILL.md Definition:</span>
-                      <pre className="whitespace-pre-wrap">{skill.skillMdContent}</pre>
+                    <div className="p-3 rounded-xl bg-obsidian-950 border border-slate-800 font-mono text-[11px] brand-text-secondary overflow-x-auto">
+                      <span className="text-slate-500 font-bold block mb-1">
+                        SKILL.md Definition:
+                      </span>
+                      <pre className="whitespace-pre-wrap">
+                        {skill.skillMdContent}
+                      </pre>
                     </div>
                   </div>
                 ))}
@@ -1635,24 +2171,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               /* SINGLE-ROW COMPACT LIST VIEW FOR CUSTOM SKILLS */
               <div className="glass-panel rounded-2xl border border-slate-800 overflow-hidden divide-y divide-slate-800/60">
                 {(formData.customSkills || []).map((skill) => (
-                  <div key={skill.id} className="p-3.5 hover:bg-slate-800/40 transition-all flex items-center justify-between gap-4">
+                  <div
+                    key={skill.id}
+                    className="p-3.5 hover:bg-slate-800/40 transition-all flex items-center justify-between gap-4"
+                  >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <Zap className="w-4 h-4 text-purple-400 shrink-0" />
-                      <h4 className="font-bold text-slate-100 text-xs shrink-0">{skill.name}</h4>
-                      <p className="text-[11px] text-slate-400 truncate flex-1 min-w-0" title={skill.description}>
+                      <Zap className="w-4 h-4 brand-text-secondary shrink-0" />
+                      <h4 className="font-bold text-slate-100 text-xs shrink-0">
+                        {skill.name}
+                      </h4>
+                      <p
+                        className="text-[11px] text-slate-400 truncate flex-1 min-w-0"
+                        title={skill.description}
+                      >
                         {skill.description}
                       </p>
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-800 text-purple-300 text-[10px] font-semibold">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-800 brand-text-secondary text-[10px] font-semibold">
                         {skill.category}
                       </span>
                       <button
                         onClick={() => handleOpenEditSkill(skill)}
                         className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1"
                       >
-                        <Edit3 className="w-3.5 h-3.5 text-purple-400" />
+                        <Edit3 className="w-3.5 h-3.5 brand-text-secondary" />
                         <span>Edit</span>
                       </button>
 
@@ -1660,11 +2204,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         onClick={() => toggleSkill(skill.id)}
                         className={`px-2 py-1 rounded-full text-[10px] font-bold border ${
                           skill.enabled
-                            ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
-                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                            ? "brand-bg-soft brand-text-secondary brand-border"
+                            : "bg-slate-800 text-slate-400 border-slate-700"
                         }`}
                       >
-                        {skill.enabled ? 'Enabled' : 'Disabled'}
+                        {skill.enabled ? "Enabled" : "Disabled"}
                       </button>
                     </div>
                   </div>
@@ -1675,46 +2219,135 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
-      {/* SUB-TAB: CONNECTORS (All legally vetted enterprise connectors) */}
-      {subTab === 'connectors' && (
+      {/* SUB-TAB: CONNECTORS */}
+      {subTab === "connectors" && (
         <div className="space-y-4">
           <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
-            {/* Header & Filter Pills */}
             <div className="flex flex-col space-y-3 border-b border-slate-800 pb-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-100 text-base">Legally Vetted Enterprise Connectors Catalog</h3>
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-slate-100 text-base">
+                      Connectors
+                    </h3>
                     <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
                       <ShieldCheck className="w-3 h-3 text-emerald-400" />
                       <span>SOC2 / GDPR Verified</span>
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400">
-                    Connectors for Microsoft Graph, Anthropic Claude, OpenAI ChatGPT, Google Workspace, n8n, Enterprise SaaS, & Data.
+                  <p className="text-xs text-slate-400 max-w-xl">
+                    Search the catalog and connect a tool. Surfaces (Actions,
+                    Transcripts, Automation) light up from connected tools — no
+                    separate “new connector” flow.
                   </p>
+                  <details className="text-xs text-slate-400 group">
+                    <summary className="cursor-pointer brand-text font-semibold inline-flex items-center gap-1.5 list-none">
+                      <HelpCircle className="w-3.5 h-3.5" />
+                      Help: connection approaches
+                    </summary>
+                    <div className="mt-2 p-3 rounded-xl border border-slate-800 bg-obsidian-950/60 space-y-2">
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        Pick native vendor OAuth, MCP, iPaaS (Zapier / Make /
+                        n8n), an AI assistant, or a direct API — whichever matches
+                        how you already work.
+                      </p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-[11px] text-left border-collapse">
+                          <thead>
+                            <tr className="border-b border-slate-800 text-slate-500">
+                              <th className="py-1.5 pr-3 font-bold">Approach</th>
+                              <th className="py-1.5 pr-3 font-bold">
+                                Starts on its own?
+                              </th>
+                              <th className="py-1.5 pr-3 font-bold">
+                                Multi-app?
+                              </th>
+                              <th className="py-1.5 font-bold">Setup burden</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {CONNECTOR_APPROACHES.map((row) => (
+                              <tr
+                                key={row.id}
+                                className="border-b border-slate-800/60"
+                              >
+                                <td className="py-1.5 pr-3 font-semibold brand-text">
+                                  {row.label}
+                                </td>
+                                <td className="py-1.5 pr-3 text-slate-300">
+                                  {row.startsOnItsOwn}
+                                </td>
+                                <td className="py-1.5 pr-3 text-slate-300">
+                                  {row.multiAppInOneMotion}
+                                </td>
+                                <td className="py-1.5 text-slate-300">
+                                  {row.setupBurden}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </details>
                 </div>
 
-                <div className="relative">
+                <div className="relative shrink-0">
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                   <input
                     type="text"
                     value={connectorSearch}
                     onChange={(e) => setConnectorSearch(e.target.value)}
-                    placeholder="Search all connectors..."
+                    placeholder="Search connectors…"
                     className="pl-8 pr-3 py-1.5 rounded-xl glass-input text-xs w-56"
                   />
                 </div>
               </div>
 
-              {/* Ecosystem Filter Pills */}
+              <div className="flex flex-wrap items-center gap-2">
+                {(["All", "Connected", "Available"] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setConnectorStatusFilter(st)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                      connectorStatusFilter === st
+                        ? "brand-button shadow-md"
+                        : "bg-obsidian-900 text-slate-400 border border-slate-800 hover:text-slate-200"
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+                <span className="w-px h-4 bg-slate-800 mx-0.5" aria-hidden />
+                {approachFilterList.map((ap) => (
+                  <button
+                    key={ap}
+                    type="button"
+                    onClick={() => setConnectorApproachFilter(ap)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all ${
+                      connectorApproachFilter === ap
+                        ? "brand-button shadow-md"
+                        : "bg-obsidian-900 text-slate-400 border border-slate-800 hover:text-slate-200"
+                    }`}
+                  >
+                    {ap === "All"
+                      ? "All approaches"
+                      : approachShortLabel(ap as ConnectorApproach)}
+                  </button>
+                ))}
+              </div>
+
               <div className="flex items-center gap-1 overflow-x-auto bg-obsidian-900 p-1 rounded-xl border border-slate-800">
                 {ecosystemsList.map((eco) => (
                   <button
                     key={eco}
+                    type="button"
                     onClick={() => setConnectorEcosystem(eco)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                      connectorEcosystem === eco ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+                      connectorEcosystem === eco
+                        ? "brand-button shadow-md"
+                        : "text-slate-400 hover:text-slate-200"
                     }`}
                   >
                     {eco}
@@ -1723,42 +2356,57 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            {/* Connectors: Tiles vs List */}
-            {settingsViewMode === 'grid' ? (
+            {filteredConnectors.length === 0 ? (
+              <p className="text-sm text-slate-400 py-8 text-center">
+                No connectors match these filters. Clear search or switch to All.
+              </p>
+            ) : settingsViewMode === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredConnectors.map((c) => {
-                  const isConn = c.status === 'Connected';
+                  const isConn = c.status === "Connected";
                   return (
                     <div
                       key={c.id}
                       className={`p-5 rounded-2xl glass-card border transition-all space-y-3 flex flex-col justify-between ${
-                        isConn ? 'border-emerald-500/40 bg-emerald-950/10' : 'border-slate-800 hover:border-indigo-500/40'
+                        isConn
+                          ? "border-emerald-500/40 bg-emerald-950/10"
+                          : "border-slate-800 hover:brand-border"
                       }`}
                     >
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <div className="p-2 rounded-xl bg-obsidian-950 border border-slate-800 shrink-0">
                               {getConnectorIcon(c.icon)}
                             </div>
-                            <div>
-                              <h4 className="font-bold text-slate-100 text-sm">{c.name}</h4>
-                              <span className="text-[10px] text-slate-400 uppercase font-semibold block">{c.ecosystem}</span>
+                            <div className="min-w-0">
+                              <h4 className="font-bold text-slate-100 text-sm truncate">
+                                {c.name}
+                              </h4>
+                              <span className="text-[10px] text-slate-400 uppercase font-semibold block truncate">
+                                {c.ecosystem}
+                                {c.approach
+                                  ? ` · ${approachShortLabel(c.approach)}`
+                                  : ""}
+                                {c.surfaceRole ? ` · ${c.surfaceRole}` : ""}
+                              </span>
                             </div>
                           </div>
 
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                               isConn
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                : 'bg-slate-800 text-slate-400 border border-slate-700'
+                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                : "bg-slate-800 text-slate-400 border border-slate-700"
                             }`}
                           >
-                            {isConn ? 'Connected' : 'Not Connected'}
+                            {isConn ? "Connected" : "Available"}
                           </span>
                         </div>
 
-                        <p className="text-xs text-slate-300 leading-relaxed">{c.description}</p>
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                          {c.description}
+                        </p>
 
                         <div className="p-2 rounded-lg bg-obsidian-950/80 border border-slate-800 text-[10px] text-emerald-300 flex items-center gap-1.5">
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -1774,15 +2422,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         )}
 
                         <button
+                          type="button"
                           onClick={() => setSelectedConnectorForSetup(c)}
                           className={`w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                             isConn
-                              ? 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                              : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-600/30'
+                              ? "bg-slate-800 hover:bg-slate-700 text-slate-300"
+                              : "brand-button brand-ring"
                           }`}
                         >
                           <Lock className="w-3.5 h-3.5" />
-                          <span>{isConn ? 'Reconfigure IDP' : 'Sign In with IDP'}</span>
+                          <span>{connectorSetupCta(c)}</span>
                         </button>
                       </div>
                     </div>
@@ -1792,7 +2441,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             ) : (
               <div className="glass-panel rounded-2xl border border-slate-800 overflow-hidden divide-y divide-slate-800/60">
                 {filteredConnectors.map((c) => {
-                  const isConn = c.status === 'Connected';
+                  const isConn = c.status === "Connected";
                   return (
                     <div
                       key={c.id}
@@ -1803,28 +2452,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           {getConnectorIcon(c.icon)}
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-slate-100 text-xs truncate">{c.name}</h4>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-bold text-slate-100 text-xs truncate">
+                              {c.name}
+                            </h4>
+                            <span className="text-[10px] text-slate-500 font-semibold">
+                              {approachShortLabel(c.approach)}
+                            </span>
                             <span
                               className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                                 isConn
-                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                  : 'bg-slate-800 text-slate-400'
+                                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                  : "bg-slate-800 text-slate-400"
                               }`}
                             >
-                              {isConn ? 'Connected' : 'Not Connected'}
+                              {isConn ? "Connected" : "Available"}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-400 truncate">{c.description}</p>
+                          <p className="text-[11px] text-slate-400 truncate">
+                            {c.description}
+                          </p>
                         </div>
                       </div>
                       <button
+                        type="button"
                         onClick={() => setSelectedConnectorForSetup(c)}
                         className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 ${
-                          isConn ? 'bg-slate-800 text-slate-300' : 'brand-button'
+                          isConn
+                            ? "bg-slate-800 text-slate-300"
+                            : "brand-button"
                         }`}
                       >
-                        {isConn ? 'Reconfigure' : 'Connect'}
+                        {connectorSetupCta(c)}
                       </button>
                     </div>
                   );
@@ -1836,25 +2495,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
 
       {/* SUB-TAB 1: AI MODELS & LOCAL MACHINE */}
-      {subTab === 'ai-models' && (
+      {subTab === "ai-models" && (
         <div className="space-y-4">
           <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
-                <h3 className="font-bold text-slate-100 text-base">AI Model Provider Configuration</h3>
-                <p className="text-xs text-slate-400">Configure local machine models (Ollama, LM Studio) or cloud AI providers (Claude, OpenAI, Gemini).</p>
+                <h3 className="font-bold text-slate-100 text-base">
+                  AI Model Provider Configuration
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Local engines first, then free-tier gateways, then paid APIs.
+                  Prefer free sources to keep inference cost near zero.
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => setShowAutoConnectModal(true)}
-                  className="px-3 py-1.5 rounded-xl bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-xs font-bold flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-xl brand-bg-soft brand-text border brand-border text-xs font-bold flex items-center gap-1"
                 >
                   <Radio className="w-3.5 h-3.5" />
                   <span>Auto-Connect Screen</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowAddProviderModal(true)}
-                  className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-purple-600/30 transition-all"
+                  className="px-3.5 py-2 rounded-xl brand-secondary-fill font-bold text-xs flex items-center gap-1.5 shadow-md transition-all"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add AI Provider</span>
@@ -1863,30 +2529,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             {/* Provider cards: Tiles vs List */}
-            {settingsViewMode === 'grid' ? (
+            {settingsViewMode === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(formData.aiProviders || []).map((prov) => (
                   <div
                     key={prov.id}
                     className={`p-5 rounded-2xl glass-card border transition-all space-y-3 ${
                       prov.isDefault
-                        ? 'border-indigo-500/50 bg-indigo-950/20 shadow-glow-indigo'
-                        : 'border-slate-800'
+                        ? "brand-border brand-bg-soft brand-ring"
+                        : "border-slate-800"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Cpu className="w-5 h-5 text-indigo-400" />
-                        <h4 className="font-bold text-slate-100 text-sm">{prov.provider}</h4>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Cpu className="w-5 h-5 brand-text shrink-0" />
+                        <h4 className="font-bold text-slate-100 text-sm truncate">
+                          {prov.provider}
+                        </h4>
+                        {prov.tier === "free" && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0">
+                            Free
+                          </span>
+                        )}
                       </div>
                       {prov.isDefault ? (
-                        <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold">
+                        <span className="px-2.5 py-0.5 rounded-full brand-bg-soft brand-text border brand-border text-[10px] font-bold shrink-0">
                           Default Engine
                         </span>
                       ) : (
                         <button
+                          type="button"
                           onClick={() => setDefaultProvider(prov.id)}
-                          className="text-[11px] text-slate-400 hover:text-indigo-300 underline font-semibold"
+                          className="text-[11px] text-slate-400 hover:brand-text underline font-semibold shrink-0"
                         >
                           Set Default
                         </button>
@@ -1894,15 +2568,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </div>
 
                     <div className="space-y-1 text-xs">
-                      <span className="text-slate-400 block">Endpoint URL:</span>
-                      <code className="p-2 rounded-lg bg-obsidian-950 border border-slate-800 block text-indigo-300 font-mono text-[11px] truncate">
+                      <span className="text-slate-400 block">
+                        Endpoint URL:
+                      </span>
+                      <code className="p-2 rounded-lg bg-obsidian-950 border border-slate-800 block brand-text font-mono text-[11px] truncate">
                         {prov.endpoint}
                       </code>
                     </div>
 
                     <div className="flex items-center justify-between text-xs pt-1">
                       <span className="text-slate-400">
-                        Model: <strong className="text-slate-100">{prov.selectedModel}</strong>
+                        Model:{" "}
+                        <strong className="text-slate-100">
+                          {prov.selectedModel}
+                        </strong>
                       </span>
                       <span className="text-emerald-400 font-bold flex items-center gap-1">
                         <Check className="w-3.5 h-3.5" />
@@ -1920,23 +2599,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     className="p-3 hover:bg-slate-800/40 transition-all flex items-center justify-between gap-3"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <Cpu className="w-4 h-4 text-indigo-400 shrink-0" />
+                      <Cpu className="w-4 h-4 brand-text shrink-0" />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-slate-100 text-xs">{prov.provider}</h4>
+                          <h4 className="font-bold text-slate-100 text-xs">
+                            {prov.provider}
+                          </h4>
+                          {prov.tier === "free" && (
+                            <span className="text-[9px] font-bold uppercase text-emerald-300">
+                              Free
+                            </span>
+                          )}
                           {prov.isDefault && (
-                            <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-bold">
+                            <span className="px-2 py-0.5 rounded-full brand-bg-soft brand-text text-[10px] font-bold">
                               Default
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-400 truncate font-mono">{prov.endpoint}</p>
+                        <p className="text-[11px] text-slate-400 truncate font-mono">
+                          {prov.endpoint}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[11px] text-slate-300">{prov.selectedModel}</span>
+                      <span className="text-[11px] text-slate-300">
+                        {prov.selectedModel}
+                      </span>
                       {!prov.isDefault && (
                         <button
+                          type="button"
                           onClick={() => setDefaultProvider(prov.id)}
                           className="text-[11px] brand-text underline font-semibold"
                         >
@@ -1949,140 +2640,238 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             )}
           </div>
+
+          {/* Free-tier gateways — curated, not the full 295-model directory */}
+          <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-100 text-sm">
+                  Free tier sources
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5 max-w-xl">
+                  Curated gateways from the{" "}
+                  <a
+                    href={FREE_MODELS_DIRECTORY_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="brand-text underline font-semibold"
+                  >
+                    AY Automate free models directory
+                  </a>
+                  . Connect one key per gateway — not every model in the
+                  directory.
+                </p>
+              </div>
+            </div>
+
+            <div className="divide-y divide-slate-800/60 rounded-xl border border-slate-800 overflow-hidden">
+              {FREE_AI_SOURCES.map((source) => {
+                const connected = (formData.aiProviders || []).some(
+                  (p) => p.freeSourceId === source.id && p.connected,
+                );
+                return (
+                  <div
+                    key={source.id}
+                    className="p-3 flex flex-col sm:flex-row sm:items-center gap-3 bg-obsidian-950/40 hover:bg-slate-800/30"
+                  >
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-100 text-xs">
+                          {source.name}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono truncate">
+                          {source.suggestedModel}
+                        </span>
+                        {connected && (
+                          <span className="text-[10px] font-bold text-emerald-300">
+                            Connected
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-snug">
+                        {source.blurb}{" "}
+                        <span className="text-slate-500">
+                          · {source.freeLimits}
+                        </span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openFreeSourceConnect(source)}
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 ${
+                        connected
+                          ? "bg-slate-800 text-slate-300"
+                          : "brand-button"
+                      }`}
+                    >
+                      {connected ? "Reconfigure" : "Connect"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
       {/* SUB-TAB 2: CLAUDE.MD & SYSTEM INSTRUCTIONS */}
-      {subTab === 'claude-md' && (
+      {subTab === "claude-md" && (
         <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div>
-              <h3 className="font-bold text-slate-100 text-base">CLAUDE.md & System Instructions Editor</h3>
-              <p className="text-xs text-slate-400">Directly edit `CLAUDE.md` and custom executive directives for your Chief of Staff AI.</p>
+              <h3 className="font-bold text-slate-100 text-base">
+                CLAUDE.md & System Instructions Editor
+              </h3>
+              <p className="text-xs text-slate-400">
+                Directly edit `CLAUDE.md` and custom executive directives for
+                your Chief of Staff AI.
+              </p>
             </div>
             <button
               onClick={() => handleSaveAll()}
-              className="px-4 py-1.5 rounded-xl bg-indigo-600 text-white font-bold text-xs"
+              className="px-4 py-1.5 rounded-xl brand-button font-bold text-xs"
             >
               Save CLAUDE.md
             </button>
           </div>
 
           <textarea
-            rows={settingsViewMode === 'list' ? 8 : 14}
+            rows={settingsViewMode === "list" ? 8 : 14}
             value={formData.claudeMdContent}
-            onChange={(e) => setFormData({ ...formData, claudeMdContent: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, claudeMdContent: e.target.value })
+            }
             className="w-full p-4 rounded-xl glass-input font-mono text-xs text-slate-200 leading-relaxed resize-none"
           />
         </div>
       )}
 
       {/* SUB-TAB 5: SYSTEM & AUTO-START */}
-      {subTab === 'system' && (
+      {subTab === "system" && (
         <div className="space-y-4">
           <div className="glass-panel p-5 rounded-2xl border border-slate-800">
-            <h3 className="font-bold text-slate-100 text-base">System Preferences & Dual-Machine Setup</h3>
+            <h3 className="font-bold text-slate-100 text-base">
+              System Preferences & Dual-Machine Setup
+            </h3>
             <p className="text-xs text-slate-400 mt-1">
-              Day-to-day use <span className="text-slate-200 font-semibold">npm run dev</span> (Vite) on Mac or Windows.
-              Electron packaging is optional — see <span className="font-mono text-slate-300">npm run electron</span>.
+              Day-to-day use{" "}
+              <span className="text-slate-200 font-semibold">npm run dev</span>{" "}
+              (Vite) on Mac or Windows. Electron packaging is optional — see{" "}
+              <span className="font-mono text-slate-300">npm run electron</span>
+              .
             </p>
           </div>
 
           <div
             className={
-              settingsViewMode === 'grid'
-                ? 'grid grid-cols-1 md:grid-cols-2 gap-4'
-                : 'space-y-4'
+              settingsViewMode === "grid"
+                ? "grid grid-cols-1 md:grid-cols-2 gap-4"
+                : "space-y-4"
             }
           >
-          <div className="p-4 rounded-xl glass-card border border-slate-700/60 space-y-2">
-            <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
-              <Monitor className="w-4 h-4" />
-              <span>Detected host</span>
-            </span>
-            <p className="text-[11px] text-slate-300">
-              Platform: <span className="font-semibold text-slate-100">{hostPlatform}</span>
-              {' · '}
-              Home for skill paths:{' '}
-              <span className="font-mono text-indigo-300">{homeDirectory}</span>
-            </p>
-            <p className="text-[10px] text-slate-500">
-              Override with <span className="font-mono">VITE_HOME_DIR</span> or{' '}
-              <span className="font-mono">VITE_USERNAME</span> in a local <span className="font-mono">.env</span> (not committed).
-              Skill paths are mock catalog URLs — they do not prove folders exist on disk.
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl glass-card border border-emerald-500/30 flex items-center justify-between gap-4">
-            <div className="space-y-0.5">
-              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                <Power className="w-4 h-4" />
-                <span>Auto-Start on Login</span>
+            <div className="p-4 rounded-xl glass-card border border-slate-700/60 space-y-2">
+              <span className="text-xs font-bold brand-text flex items-center gap-1.5">
+                <Monitor className="w-4 h-4" />
+                <span>Detected host</span>
               </span>
               <p className="text-[11px] text-slate-300">
-                Preference only in the browser. Real login-item registration requires the Electron shell
-                (<span className="font-mono">npm run electron</span> after <span className="font-mono">npm run build</span>).
+                Platform:{" "}
+                <span className="font-semibold text-slate-100">
+                  {hostPlatform}
+                </span>
+                {" · "}
+                Home for skill paths:{" "}
+                <span className="font-mono brand-text">{homeDirectory}</span>
+              </p>
+              <p className="text-[10px] text-slate-500">
+                Override with <span className="font-mono">VITE_HOME_DIR</span>{" "}
+                or <span className="font-mono">VITE_USERNAME</span> in a local{" "}
+                <span className="font-mono">.env</span> (not committed). Skill
+                paths are mock catalog URLs — they do not prove folders exist on
+                disk.
               </p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer shrink-0">
-              <input
-                type="checkbox"
-                checked={formData.autoStartOnBoot}
-                onChange={(e) => setFormData({ ...formData, autoStartOnBoot: e.target.checked })}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-            </label>
-          </div>
 
-          <div className="p-4 rounded-xl glass-card border border-indigo-500/30 space-y-3">
-            <div>
-              <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                <Download className="w-4 h-4" />
-                <span>Move browser state between machines</span>
-              </span>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Settings, mock data, and skills live in this browser&apos;s localStorage. Mac Chrome ≠ Windows Chrome —
-                export a JSON file here, copy it over, then import on the other machine.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={handleExportWorkspace}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export Workspace</span>
-              </button>
-              <label className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
-                <Upload className="w-3.5 h-3.5" />
-                <span>Import Workspace</span>
+            <div className="p-4 rounded-xl glass-card border border-emerald-500/30 flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                  <Power className="w-4 h-4" />
+                  <span>Auto-Start on Login</span>
+                </span>
+                <p className="text-[11px] text-slate-300">
+                  Preference only in the browser. Real login-item registration
+                  requires the Electron shell (
+                  <span className="font-mono">npm run electron</span> after{" "}
+                  <span className="font-mono">npm run build</span>).
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
                 <input
-                  type="file"
-                  accept="application/json,.json"
-                  className="hidden"
-                  onChange={(e) => {
-                    handleImportWorkspace(e.target.files?.[0] ?? null);
-                    e.target.value = '';
-                  }}
+                  type="checkbox"
+                  checked={formData.autoStartOnBoot}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      autoStartOnBoot: e.target.checked,
+                    })
+                  }
+                  className="sr-only peer"
                 />
+                <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
               </label>
             </div>
-            {workspaceTransferMessage && (
-              <p className="text-[11px] text-emerald-400 font-medium">{workspaceTransferMessage}</p>
-            )}
-          </div>
 
-          <div className="pt-2 flex justify-start md:col-span-2">
-            <button
-              onClick={onResetMockData}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Reset Demo Data</span>
-            </button>
-          </div>
+            <div className="p-4 rounded-xl glass-card border brand-border space-y-3">
+              <div>
+                <span className="text-xs font-bold brand-text flex items-center gap-1.5">
+                  <Download className="w-4 h-4" />
+                  <span>Move browser state between machines</span>
+                </span>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Settings, mock data, and skills live in this browser&apos;s
+                  localStorage. Mac Chrome ≠ Windows Chrome — export a JSON file
+                  here, copy it over, then import on the other machine.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportWorkspace}
+                  className="px-4 py-2 rounded-xl brand-button text-xs font-semibold flex items-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export Workspace</span>
+                </button>
+                <label className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Import Workspace</span>
+                  <input
+                    type="file"
+                    accept="application/json,.json"
+                    className="hidden"
+                    onChange={(e) => {
+                      handleImportWorkspace(e.target.files?.[0] ?? null);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+              {workspaceTransferMessage && (
+                <p className="text-[11px] text-emerald-400 font-medium">
+                  {workspaceTransferMessage}
+                </p>
+              )}
+            </div>
+
+            <div className="pt-2 flex justify-start md:col-span-2">
+              <button
+                onClick={onResetMockData}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Reset Demo Data</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2103,10 +2892,125 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         onSaveSkill={handleSaveSkill}
       />
 
+      {/* FREE TIER SOURCE CONNECT */}
+      {freeConnectSource && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-obsidian-950/80 backdrop-blur-md"
+          onClick={() => setFreeConnectSource(null)}
+          role="presentation"
+        >
+          <form
+            onSubmit={handleConnectFreeSource}
+            onClick={(e) => e.stopPropagation()}
+            className="glass-panel w-full max-w-md rounded-2xl border brand-border p-5 space-y-3 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-2 border-b border-slate-800 pb-3">
+              <div className="min-w-0 space-y-1">
+                <h4 className="font-bold text-slate-100 text-sm">
+                  Connect {freeConnectSource.name}
+                </h4>
+                <p className="text-[11px] text-slate-400">
+                  {freeConnectSource.freeLimits}
+                  {" · "}
+                  {freeConnectSource.catchNote}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFreeConnectSource(null)}
+                className="text-slate-400 hover:text-white shrink-0"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <ol className="space-y-1.5 text-[11px] text-slate-300 list-decimal list-inside">
+              {freeConnectSource.steps.map((step, i) => (
+                <li key={i} className="leading-snug">
+                  {step}
+                </li>
+              ))}
+            </ol>
+
+            <div className="flex flex-wrap gap-2 text-[11px]">
+              <a
+                href={freeConnectSource.keyUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="brand-text underline font-semibold"
+              >
+                Get free key
+              </a>
+              <span className="text-slate-600">·</span>
+              <a
+                href={freeConnectSource.guideUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-slate-400 underline"
+              >
+                Setup guide
+              </a>
+            </div>
+
+            <div className="space-y-2">
+              <input
+                type="text"
+                required
+                value={freeConnectEndpoint}
+                onChange={(e) => setFreeConnectEndpoint(e.target.value)}
+                placeholder="Endpoint URL"
+                className="w-full px-3 py-2 rounded-xl glass-input text-xs font-mono"
+              />
+              <input
+                type="text"
+                required
+                value={freeConnectModel}
+                onChange={(e) => setFreeConnectModel(e.target.value)}
+                placeholder="Model id"
+                className="w-full px-3 py-2 rounded-xl glass-input text-xs font-mono"
+              />
+              {freeConnectSource.requiresKey && (
+                <input
+                  type="password"
+                  required
+                  value={freeConnectKey}
+                  onChange={(e) => setFreeConnectKey(e.target.value)}
+                  placeholder="API key / token"
+                  className="w-full px-3 py-2 rounded-xl glass-input text-xs font-mono"
+                  autoFocus
+                />
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setFreeConnectSource(null)}
+                className="px-4 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 rounded-xl brand-button font-bold text-xs"
+              >
+                Connect free source
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* ADD AI PROVIDER MODAL */}
       {showAddProviderModal && (
-        <form onSubmit={handleAddAIProvider} className="glass-panel p-5 rounded-2xl border border-indigo-500/40 space-y-3">
-          <h4 className="font-bold text-indigo-300 text-sm">Add New AI Model Provider</h4>
+        <form
+          onSubmit={handleAddAIProvider}
+          className="glass-panel p-5 rounded-2xl border brand-border space-y-3"
+        >
+          <h4 className="font-bold brand-text text-sm">
+            Add New AI Model Provider
+          </h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <select
               value={providerType}
@@ -2114,7 +3018,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="px-3 py-2 rounded-xl glass-input text-xs bg-obsidian-950"
             >
               <option value="Ollama (Local)">Ollama (Local Machine)</option>
-              <option value="LM Studio (Local)">LM Studio (Local Machine)</option>
+              <option value="LM Studio (Local)">
+                LM Studio (Local Machine)
+              </option>
               <option value="Anthropic Claude">Anthropic Claude</option>
               <option value="OpenAI">OpenAI</option>
               <option value="Google Gemini">Google Gemini</option>
@@ -2159,7 +3065,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500"
+              className="px-4 py-1.5 rounded-xl brand-button text-xs font-bold"
             >
               Connect AI Provider
             </button>

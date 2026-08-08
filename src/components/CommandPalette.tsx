@@ -65,10 +65,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 bg-obsidian-950/80 backdrop-blur-md">
-      <div className="glass-panel w-full max-w-2xl rounded-2xl border border-indigo-500/40 p-4 space-y-4 shadow-2xl relative">
+      <div className="glass-panel w-full max-w-2xl rounded-2xl border brand-border p-4 space-y-4 shadow-2xl relative">
         {/* Search Header */}
         <div className="relative flex items-center border-b border-slate-800 pb-3">
-          <Search className="w-5 h-5 text-indigo-400 absolute left-3" />
+          <Search className="w-5 h-5 brand-text absolute left-3" />
           <input
             type="text"
             autoFocus
@@ -86,7 +86,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         <div className="max-h-96 overflow-y-auto space-y-4 pr-1 text-xs">
           {!q && (
             <div className="p-4 text-center text-slate-400 space-y-2">
-              <Command className="w-8 h-8 text-indigo-400 mx-auto opacity-60" />
+              <Command className="w-8 h-8 brand-text mx-auto opacity-60" />
               <p className="font-semibold text-slate-200">Executive Command Palette Active</p>
               <p className="text-[11px]">Type any keyword to instantly search emails, meetings, tasks, and decision logs.</p>
             </div>
@@ -95,7 +95,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Apps */}
           {matchingApps.length > 0 && (
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block px-2">Apps & Tools</span>
+              <span className="text-[10px] font-bold brand-text uppercase tracking-wider block px-2">Apps & Tools</span>
               {matchingApps.map((a) => (
                 <div
                   key={a.id}
@@ -103,10 +103,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     window.open(a.url, '_blank');
                     onClose();
                   }}
-                  className="p-2.5 rounded-xl glass-card border border-slate-800 hover:border-amber-500/40 flex items-center justify-between cursor-pointer"
+                  className="p-2.5 rounded-xl glass-card border border-slate-800 hover:border-[var(--brand-accent-border)] flex items-center justify-between cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <Grid className="w-4 h-4 text-amber-400" />
+                    <Grid className="w-4 h-4 brand-text" />
                     <span className="font-semibold text-slate-100">{a.name}</span>
                   </div>
                   <span className="text-slate-400 text-[11px]">Launch App</span>
@@ -118,7 +118,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Notion Deliverables */}
           {matchingNotion.length > 0 && (
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block px-2">Notion Action Cards</span>
+              <span className="text-[10px] font-bold brand-text uppercase tracking-wider block px-2">Action cards</span>
               {matchingNotion.map((n) => (
                 <div
                   key={n.id}
@@ -126,13 +126,21 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     onNavigateTab('notion-krisp');
                     onClose();
                   }}
-                  className="p-2.5 rounded-xl glass-card border border-slate-800 hover:border-emerald-500/40 flex items-center justify-between cursor-pointer"
+                  className="p-2.5 rounded-xl glass-card border border-slate-800 hover:border-[var(--brand-accent-border)] flex items-center justify-between cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-emerald-400" />
+                    <FileText className="w-4 h-4 brand-text" />
                     <span className="font-semibold text-slate-100">{n.title}</span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                      n.priority === 'High'
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                        : n.priority === 'Medium'
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          : 'brand-bg-soft brand-text border-transparent'
+                    }`}
+                  >
                     {n.priority}
                   </span>
                 </div>
@@ -143,7 +151,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Krisp Notes */}
           {matchingKrisp.length > 0 && (
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block px-2">Krisp Transcriptions</span>
+              <span className="text-[10px] font-bold brand-text-secondary uppercase tracking-wider block px-2">Krisp Transcriptions</span>
               {matchingKrisp.map((k) => (
                 <div
                   key={k.id}
@@ -151,10 +159,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     onNavigateTab('notion-krisp');
                     onClose();
                   }}
-                  className="p-2.5 rounded-xl glass-card border border-slate-800 hover:border-purple-500/40 flex items-center justify-between cursor-pointer"
+                  className="p-2.5 rounded-xl glass-card border border-slate-800 hover:brand-border flex items-center justify-between cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <Mic className="w-4 h-4 text-purple-400" />
+                    <Mic className="w-4 h-4 brand-text-secondary" />
                     <span className="font-semibold text-slate-100">{k.title}</span>
                   </div>
                   <span className="text-slate-400 text-[11px]">{k.date}</span>
@@ -166,7 +174,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* Local KB Entries */}
           {matchingKb.length > 0 && (
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wider block px-2">Local KB & AI Clone Log</span>
+              <span className="text-[10px] font-bold brand-text-secondary uppercase tracking-wider block px-2">Local KB & AI Clone Log</span>
               {matchingKb.map((kbEntry) => (
                 <div
                   key={kbEntry.id}
@@ -174,10 +182,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     onNavigateTab('knowledge-clone');
                     onClose();
                   }}
-                  className="p-2.5 rounded-xl glass-card border border-slate-800 hover:border-purple-500/40 flex items-center justify-between cursor-pointer"
+                  className="p-2.5 rounded-xl glass-card border border-slate-800 hover:brand-border flex items-center justify-between cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <Brain className="w-4 h-4 text-purple-300" />
+                    <Brain className="w-4 h-4 brand-text-secondary" />
                     <span className="font-semibold text-slate-100">{kbEntry.title}</span>
                   </div>
                   <span className="text-slate-400 text-[11px]">{kbEntry.category}</span>

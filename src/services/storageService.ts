@@ -22,6 +22,8 @@ import {
   MOCK_PERSONA_RULES,
 } from './mockData';
 import { normalizeSidebarNavOrder, syncWidgetsToNavOrder } from './navOrder';
+import { normalizeConnectorsCatalog } from './connectorApproaches';
+import { INITIAL_CONNECTORS_CATALOG } from './connectorsCatalog';
 
 const KEYS = {
   SETTINGS: 'exec_dash_settings',
@@ -53,10 +55,32 @@ export const storageService = {
     try {
       const parsed = JSON.parse(data) as Partial<AppSettings>;
       // Migrate older localStorage blobs missing newer fields.
+      // Legacy indigo default → Halliday Corporate (see halliday-brand-guide/).
+      const legacyIndigo =
+        (!parsed.brandPreset || parsed.brandPreset === 'indigo') &&
+        (!parsed.accentColor || String(parsed.accentColor).toUpperCase() === '#6366F1');
+
+      const brandDefaults = legacyIndigo
+        ? {
+            brandPreset: INITIAL_SETTINGS.brandPreset,
+            accentColor: INITIAL_SETTINGS.accentColor,
+            accentSecondary: INITIAL_SETTINGS.accentSecondary,
+            primaryContrastColor: INITIAL_SETTINGS.primaryContrastColor,
+            primaryFontColor: INITIAL_SETTINGS.primaryFontColor,
+            primaryFontLinked: true,
+            secondaryContrastColor: INITIAL_SETTINGS.secondaryContrastColor,
+            secondaryFontColor: INITIAL_SETTINGS.secondaryFontColor,
+            secondaryFontLinked: true,
+            brandGradientStops: INITIAL_SETTINGS.brandGradientStops,
+            theme: parsed.theme ?? INITIAL_SETTINGS.theme,
+          }
+        : {};
+
       return {
         ...INITIAL_SETTINGS,
         ...parsed,
-        theme: parsed.theme ?? INITIAL_SETTINGS.theme,
+        ...brandDefaults,
+        theme: brandDefaults.theme ?? parsed.theme ?? INITIAL_SETTINGS.theme,
         sidebarCollapsed: parsed.sidebarCollapsed ?? INITIAL_SETTINGS.sidebarCollapsed,
         workspaceName: parsed.workspaceName ?? INITIAL_SETTINGS.workspaceName,
         chiefOfStaffName: parsed.chiefOfStaffName ?? INITIAL_SETTINGS.chiefOfStaffName,
@@ -64,28 +88,41 @@ export const storageService = {
         logoDataUrl: parsed.logoDataUrl ?? '',
         markDataUrl: parsed.markDataUrl ?? '',
         personalTouch: parsed.personalTouch ?? '',
-        brandPreset: parsed.brandPreset ?? INITIAL_SETTINGS.brandPreset,
-        accentColor: parsed.accentColor ?? INITIAL_SETTINGS.accentColor,
-        accentSecondary: parsed.accentSecondary ?? INITIAL_SETTINGS.accentSecondary,
+        brandPreset: brandDefaults.brandPreset ?? parsed.brandPreset ?? INITIAL_SETTINGS.brandPreset,
+        accentColor: brandDefaults.accentColor ?? parsed.accentColor ?? INITIAL_SETTINGS.accentColor,
+        accentSecondary:
+          brandDefaults.accentSecondary ?? parsed.accentSecondary ?? INITIAL_SETTINGS.accentSecondary,
         primaryContrastColor:
-          parsed.primaryContrastColor ?? INITIAL_SETTINGS.primaryContrastColor,
+          brandDefaults.primaryContrastColor ??
+          parsed.primaryContrastColor ??
+          INITIAL_SETTINGS.primaryContrastColor,
         // Migrate legacy brandFontColor → primaryFontColor
         primaryFontColor:
+          brandDefaults.primaryFontColor ??
           parsed.primaryFontColor ??
           parsed.brandFontColor ??
           INITIAL_SETTINGS.primaryFontColor,
         primaryFontLinked:
-          parsed.primaryFontLinked ?? INITIAL_SETTINGS.primaryFontLinked,
+          brandDefaults.primaryFontLinked ??
+          parsed.primaryFontLinked ??
+          INITIAL_SETTINGS.primaryFontLinked,
         secondaryContrastColor:
-          parsed.secondaryContrastColor ?? INITIAL_SETTINGS.secondaryContrastColor,
+          brandDefaults.secondaryContrastColor ??
+          parsed.secondaryContrastColor ??
+          INITIAL_SETTINGS.secondaryContrastColor,
         secondaryFontColor:
-          parsed.secondaryFontColor ?? INITIAL_SETTINGS.secondaryFontColor,
+          brandDefaults.secondaryFontColor ??
+          parsed.secondaryFontColor ??
+          INITIAL_SETTINGS.secondaryFontColor,
         secondaryFontLinked:
-          parsed.secondaryFontLinked ?? INITIAL_SETTINGS.secondaryFontLinked,
+          brandDefaults.secondaryFontLinked ??
+          parsed.secondaryFontLinked ??
+          INITIAL_SETTINGS.secondaryFontLinked,
         brandGradientType: parsed.brandGradientType ?? INITIAL_SETTINGS.brandGradientType,
         brandGradientAngle: parsed.brandGradientAngle ?? INITIAL_SETTINGS.brandGradientAngle,
         brandGradientStops:
-          parsed.brandGradientStops?.length
+          brandDefaults.brandGradientStops ??
+          (parsed.brandGradientStops?.length
             ? parsed.brandGradientStops
             : [
                 {
@@ -100,7 +137,7 @@ export const storageService = {
                   position: 100,
                   alpha: 100,
                 },
-              ],
+              ]),
         brandIntensity: parsed.brandIntensity ?? INITIAL_SETTINGS.brandIntensity,
         useBrandGradient: parsed.useBrandGradient ?? INITIAL_SETTINGS.useBrandGradient,
         fontPreset: parsed.fontPreset ?? INITIAL_SETTINGS.fontPreset,
@@ -109,6 +146,16 @@ export const storageService = {
         widgets: syncWidgetsToNavOrder(
           parsed.widgets ?? INITIAL_SETTINGS.widgets,
           normalizeSidebarNavOrder(parsed.sidebarNavOrder)
+        ),
+        connectors: normalizeConnectorsCatalog(
+          parsed.connectors,
+          INITIAL_CONNECTORS_CATALOG,
+          {
+            notionApiKey: parsed.notionApiKey,
+            notionDatabaseId: parsed.notionDatabaseId,
+            notionConnected: parsed.notionConnected,
+            krispAutoSync: parsed.krispAutoSync,
+          }
         ),
       };
     } catch {

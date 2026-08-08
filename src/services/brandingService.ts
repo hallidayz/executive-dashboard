@@ -36,9 +36,20 @@ export interface FontPack {
 
 export const BRAND_PRESETS: BrandPalette[] = [
   {
+    id: 'executive',
+    label: 'Halliday Corporate',
+    description: 'Official Halliday brand guide default (Navy / Gold / Canvas)',
+    accent: '#FDA700',
+    secondary: '#02295B',
+    font: '#02295B',
+    secondaryFont: '#333F3F',
+    primaryContrast: '#02295B',
+    secondaryContrast: '#D6D6D6',
+  },
+  {
     id: 'indigo',
     label: 'Indigo Pulse',
-    description: 'Default executive indigo → violet',
+    description: 'Optional indigo → violet personalization (not the Halliday default)',
     accent: '#6366F1',
     secondary: '#9333EA',
     font: '#818CF8',
@@ -91,6 +102,11 @@ export const BRAND_PRESETS: BrandPalette[] = [
     secondaryContrast: '#FFFFFF',
   },
 ];
+
+/** Canonical Halliday design-system defaults (Navy / Gold / Canvas). */
+export const EXECUTIVE_PALETTE = BRAND_PRESETS[0];
+/** Alias for the official Halliday brand guide preset. */
+export const HALLIDAY_PALETTE = EXECUTIVE_PALETTE;
 
 export const FONT_PRESETS: FontPack[] = [
   {
@@ -158,7 +174,7 @@ export function createGradientStop(
   stopSeq += 1;
   return {
     id: id || `stop-${Date.now().toString(36)}-${stopSeq}`,
-    color: normalizeHex(color, '#6366F1'),
+    color: normalizeHex(color, '#FDA700'),
     position: clamp(Math.round(position), 0, 100),
     alpha: clamp(Math.round(alpha), 0, 100),
   };
@@ -173,8 +189,8 @@ export function stopsFromPair(accent: string, secondary: string): BrandGradientS
 
 export function normalizeGradientStops(
   stops: BrandGradientStop[] | undefined,
-  accent = '#6366F1',
-  secondary = '#9333EA'
+  accent = '#FDA700',
+  secondary = '#02295B'
 ): BrandGradientStop[] {
   if (!stops?.length) return stopsFromPair(accent, secondary);
   const cleaned = stops
@@ -192,7 +208,7 @@ export function buildBrandGradientCss(
   solidFallback?: string
 ): string {
   const sorted = [...stops].sort((a, b) => a.position - b.position);
-  if (!sorted.length) return solidFallback || '#6366F1';
+  if (!sorted.length) return solidFallback || '#FDA700';
   if (sorted.length === 1) {
     return rgbaCss(sorted[0].color, sorted[0].alpha);
   }
@@ -212,7 +228,7 @@ export function isCompleteHex(input: string): boolean {
 
 /** Readable brand label color derived from a primary accent. */
 export function suggestFontColorFromAccent(accent: string): string {
-  return mixTowardWhite(normalizeHex(accent, '#6366F1'), 0.28);
+  return mixTowardWhite(normalizeHex(accent, '#FDA700'), 0.28);
 }
 
 function relativeLuminance(hex: string): number {
@@ -226,11 +242,11 @@ function relativeLuminance(hex: string): number {
 
 /** Text/icon color that stays readable on brand gradient buttons. */
 export function contrastOnAccent(accent: string): string {
-  return relativeLuminance(normalizeHex(accent, '#6366F1')) > 0.45 ? '#0F172A' : '#FFFFFF';
+  return relativeLuminance(normalizeHex(accent, '#FDA700')) > 0.45 ? '#02295B' : '#FFFFFF';
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const h = normalizeHex(hex, '#6366F1').slice(1);
+  const h = normalizeHex(hex, '#FDA700').slice(1);
   return {
     r: parseInt(h.slice(0, 2), 16),
     g: parseInt(h.slice(2, 4), 16),
@@ -280,11 +296,11 @@ export function resolveBrandColors(
   // Prefer stored hex fields so custom edits always win; presets seed those fields on apply.
   const accent = normalizeHex(
     settings.accentColor,
-    preset && settings.brandPreset !== 'custom' ? preset.accent : '#6366F1'
+    preset && settings.brandPreset !== 'custom' ? preset.accent : '#FDA700'
   );
   const secondary = normalizeHex(
     settings.accentSecondary,
-    preset && settings.brandPreset !== 'custom' ? preset.secondary : '#9333EA'
+    preset && settings.brandPreset !== 'custom' ? preset.secondary : '#02295B'
   );
   const presetFont = preset?.font || suggestFontColorFromAccent(accent);
   const presetSecondaryFont = preset?.secondaryFont || suggestFontColorFromAccent(secondary);
@@ -369,10 +385,36 @@ export function applyBranding(settings: BrandingSettings): void {
 
   ensureGoogleFont(fontPack.googleHref);
 
+  /* Core design-system palette — halliday-brand-guide/ (always available) */
+  root.style.setProperty('--color-primary-navy', '#02295B');
+  root.style.setProperty('--color-primary-gold', '#FDA700');
+  root.style.setProperty('--color-primary-canvas', '#D6D6D6');
+  root.style.setProperty('--color-secondary-charcoal', '#333F3F');
+  root.style.setProperty('--color-secondary-silver', '#B0B5B3');
+  root.style.setProperty('--color-secondary-muted-fill', '#D8D8D6');
+  root.style.setProperty('--bg-page', 'var(--color-primary-canvas)');
+  root.style.setProperty('--bg-section-alt', 'var(--color-secondary-muted-fill)');
+  root.style.setProperty('--text-heading', 'var(--color-primary-navy)');
+  root.style.setProperty('--text-body', 'var(--color-secondary-charcoal)');
+  root.style.setProperty('--text-muted', 'var(--color-secondary-silver)');
+  root.style.setProperty('--border-subtle', 'var(--color-secondary-silver)');
+  root.style.setProperty('--accent-cta', accent);
+  /* Semantic status — never driven by brand remaps (see halliday-brand-guide/) */
+  root.style.setProperty('--status-critical', '#E11D48');
+  root.style.setProperty('--status-warning', '#F59E0B');
+  root.style.setProperty('--status-success', '#059669');
+
+  // Navy/charcoal fonts are for light canvas; lift them on dark shells.
+  const isDarkShell = root.classList.contains('dark');
+  const fontPrimary =
+    isDarkShell && primaryFont.toUpperCase() === '#02295B' ? '#FDA700' : primaryFont;
+  const fontSecondary =
+    isDarkShell && secondaryFont.toUpperCase() === '#333F3F' ? '#B0B5B3' : secondaryFont;
+
   root.style.setProperty('--brand-accent', accent);
   root.style.setProperty('--brand-accent-secondary', secondary);
-  root.style.setProperty('--brand-font', primaryFont);
-  root.style.setProperty('--brand-font-secondary', secondaryFont);
+  root.style.setProperty('--brand-font', fontPrimary);
+  root.style.setProperty('--brand-font-secondary', fontSecondary);
   root.style.setProperty('--brand-on-accent', primaryContrast);
   root.style.setProperty('--brand-on-secondary', secondaryContrast);
   root.style.setProperty('--brand-accent-hover', mixTowardWhite(accent, 0.12));

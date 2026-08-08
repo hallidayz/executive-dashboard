@@ -1,23 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   X,
-  Key,
   Shield,
-  Check,
   HelpCircle,
   Lock,
   User,
   ArrowRight,
-  Sparkles,
-  Zap,
-  Globe,
-  Mail,
-  Bot,
-  MessageSquare,
-  Code,
-  FileText,
-} from 'lucide-react';
-import { ConnectorItem } from '../types';
+  Key,
+} from "lucide-react";
+import { ConnectorItem } from "../types";
+import {
+  approachLabel,
+  approachShortLabel,
+} from "../services/connectorApproaches";
 
 interface ConnectorSetupWizardModalProps {
   isOpen: boolean;
@@ -26,119 +21,135 @@ interface ConnectorSetupWizardModalProps {
   onSaveConnector: (connector: ConnectorItem) => void;
 }
 
-export const ConnectorSetupWizardModal: React.FC<ConnectorSetupWizardModalProps> = ({
-  isOpen,
-  onClose,
-  connector,
-  onSaveConnector,
-}) => {
+type SetupMode = "IDP_LOGIN" | "CREDENTIALS";
+
+export const ConnectorSetupWizardModal: React.FC<
+  ConnectorSetupWizardModalProps
+> = ({ isOpen, onClose, connector, onSaveConnector }) => {
+  const supportsIdp = connector?.authType === "IDP_OAUTH";
+  const [activeMode, setActiveMode] = useState<SetupMode>("CREDENTIALS");
+  const [username, setUsername] = useState("alex.halliday@enterprise.com");
+  const [password, setPassword] = useState("••••••••••••");
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!connector) return;
+    setActiveMode(connector.authType === "IDP_OAUTH" ? "IDP_LOGIN" : "CREDENTIALS");
+    setFieldValues({ ...(connector.configValues || {}) });
+    setIsAuthenticating(false);
+  }, [connector]);
+
   if (!isOpen || !connector) return null;
 
-  const [activeMode, setActiveMode] = useState<'IDP_LOGIN' | 'ELI5_MANUAL'>('IDP_LOGIN');
-
-  // IDP Login State
-  const [username, setUsername] = useState('alex.halliday@enterprise.com');
-  const [password, setPassword] = useState('••••••••••••');
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-
-  // Manual Form Field Values
-  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const finishConnect = (patch: Partial<ConnectorItem>) => {
+    onSaveConnector({
+      ...connector,
+      status: "Connected",
+      lastSynced: "Just now",
+      configValues: { ...(connector.configValues || {}), ...fieldValues },
+      ...patch,
+    });
+    onClose();
+  };
 
   const handleIdpLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
-
     setTimeout(() => {
       setIsAuthenticating(false);
-      const updated: ConnectorItem = {
-        ...connector,
-        status: 'Connected',
-        connectedUser: username || 'user@enterprise.com',
-        lastSynced: 'Just now',
-      };
-      onSaveConnector(updated);
-      onClose();
-    }, 800);
+      finishConnect({
+        connectedUser: username || "user@enterprise.com",
+      });
+    }, 600);
   };
 
-  const handleManualSave = (e: React.FormEvent) => {
+  const handleCredentialsSave = (e: React.FormEvent) => {
     e.preventDefault();
-    const updated: ConnectorItem = {
-      ...connector,
-      status: 'Connected',
-      lastSynced: 'Just now',
-    };
-    onSaveConnector(updated);
-    onClose();
+    finishConnect({});
   };
+
+  const credentialsTitle =
+    connector.authType === "WEBHOOK"
+      ? "Webhook endpoint"
+      : connector.authType === "MCP"
+        ? "MCP server"
+        : "API credentials";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-obsidian-950/80 backdrop-blur-md">
-      <div className="glass-panel w-full max-w-2xl rounded-2xl border border-indigo-500/40 p-6 space-y-5 shadow-2xl relative">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-glow-indigo">
-              <Shield className="w-5 h-5" />
+      <div className="glass-panel w-full max-w-lg rounded-2xl border brand-border p-5 space-y-4 shadow-2xl relative">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="min-w-0 space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-bold text-slate-100 text-base truncate">
+                Connect {connector.name}
+              </h3>
+              <span className="px-2 py-0.5 rounded-full brand-bg-soft brand-text border brand-border text-[10px] font-bold">
+                {approachShortLabel(connector.approach)}
+              </span>
             </div>
-            <div>
-              <h3 className="font-bold text-slate-100 text-base">Setup Connector: {connector.name}</h3>
-              <p className="text-xs text-slate-400">1-Click IDP OAuth Login or ELI5 Step-by-Step Credentials Helper.</p>
-            </div>
+            <p className="text-xs text-slate-400 leading-snug">
+              {connector.description}
+            </p>
+            <p className="text-[10px] text-slate-500">
+              {approachLabel(connector.approach)}
+              {connector.surfaceRole ? ` · surface: ${connector.surfaceRole}` : ""}
+            </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-white shrink-0"
+            aria-label="Close"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Mode Switcher Pills */}
-        <div className="flex items-center gap-2 bg-obsidian-900 p-1 rounded-xl border border-slate-800">
-          <button
-            type="button"
-            onClick={() => setActiveMode('IDP_LOGIN')}
-            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              activeMode === 'IDP_LOGIN'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Lock className="w-3.5 h-3.5" />
-            <span>1-Click Sign In with IDP (Recommended)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveMode('ELI5_MANUAL')}
-            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              activeMode === 'ELI5_MANUAL'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-            <span>ELI5 Step-by-Step Credentials</span>
-          </button>
-        </div>
+        {supportsIdp && (
+          <div className="flex items-center gap-1 bg-obsidian-900 p-1 rounded-xl border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setActiveMode("IDP_LOGIN")}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                activeMode === "IDP_LOGIN"
+                  ? "brand-button shadow-md"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Lock className="w-3.5 h-3.5" />
+              Sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMode("CREDENTIALS")}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                activeMode === "CREDENTIALS"
+                  ? "brand-button shadow-md"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Key className="w-3.5 h-3.5" />
+              Manual fields
+            </button>
+          </div>
+        )}
 
-        {/* MODE 1: 1-CLICK IDP OAUTH LOGIN SCREEN */}
-        {activeMode === 'IDP_LOGIN' && (
-          <form onSubmit={handleIdpLogin} className="space-y-4 pt-2">
-            <div className="p-4 rounded-xl glass-card border border-indigo-500/30 space-y-3 bg-gradient-to-b from-indigo-950/40 to-obsidian-950">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                  <Shield className="w-4 h-4 text-indigo-400" />
-                  <span>{connector.ecosystem} Identity Provider (IDP) OAuth Screen</span>
+        {activeMode === "IDP_LOGIN" && supportsIdp && (
+          <form onSubmit={handleIdpLogin} className="space-y-3">
+            <div className="p-3 rounded-xl glass-card border brand-border space-y-3">
+              <p className="text-xs text-slate-300 flex items-start gap-2">
+                <Shield className="w-4 h-4 brand-text shrink-0 mt-0.5" />
+                <span>
+                  Sign in with your {connector.ecosystem} account. OAuth tokens
+                  are handled automatically.
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
-                  Zero Technical Setup Required
-                </span>
-              </div>
-
-              <p className="text-xs text-slate-300">
-                Log in with your normal username and password. We handle OAuth code exchange, Client ID generation, and token authorization automatically!
               </p>
-
-              <div className="space-y-2">
-                <label className="text-[11px] font-semibold text-slate-400 block">Username / Email Address</label>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-slate-400 block">
+                  Email
+                </label>
                 <div className="relative">
                   <User className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                   <input
@@ -146,14 +157,15 @@ export const ConnectorSetupWizardModal: React.FC<ConnectorSetupWizardModalProps>
                     required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="e.g. user@enterprise.com"
                     className="w-full pl-9 pr-3 py-2 rounded-xl glass-input text-xs"
+                    autoFocus
                   />
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <label className="text-[11px] font-semibold text-slate-400 block">Password</label>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-slate-400 block">
+                  Password
+                </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                   <input
@@ -161,14 +173,12 @@ export const ConnectorSetupWizardModal: React.FC<ConnectorSetupWizardModalProps>
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Password..."
                     className="w-full pl-9 pr-3 py-2 rounded-xl glass-input text-xs"
                   />
                 </div>
               </div>
             </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+            <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={onClose}
@@ -179,14 +189,14 @@ export const ConnectorSetupWizardModal: React.FC<ConnectorSetupWizardModalProps>
               <button
                 type="submit"
                 disabled={isAuthenticating}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all"
+                className="px-5 py-2 rounded-xl brand-button font-bold text-xs flex items-center gap-2 brand-ring"
               >
                 {isAuthenticating ? (
-                  <span>Authenticating with IDP...</span>
+                  "Connecting…"
                 ) : (
                   <>
-                    <span>Sign In & Connect Automatically</span>
-                    <ArrowRight className="w-4 h-4" />
+                    Connect
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}
               </button>
@@ -194,42 +204,53 @@ export const ConnectorSetupWizardModal: React.FC<ConnectorSetupWizardModalProps>
           </form>
         )}
 
-        {/* MODE 2: ELI5 STEP-BY-STEP MANUAL CREDENTIALS */}
-        {activeMode === 'ELI5_MANUAL' && (
-          <form onSubmit={handleManualSave} className="space-y-4 pt-2">
-            {/* ELI5 Instructions Box */}
-            <div className="p-4 rounded-xl bg-obsidian-950 border border-purple-500/30 space-y-2 text-xs">
-              <span className="font-bold text-purple-400 flex items-center gap-1.5">
-                <HelpCircle className="w-4 h-4" />
-                <span>ELI5 ("Explain Like I'm 5") Step-by-Step Guide</span>
-              </span>
-              <div className="space-y-1 text-slate-300">
-                {connector.eli5Instructions.map((inst, i) => (
-                  <p key={i} className="flex items-start gap-1.5">
-                    <span className="text-purple-400 font-bold">•</span>
-                    <span>{inst}</span>
-                  </p>
-                ))}
-              </div>
-            </div>
+        {activeMode === "CREDENTIALS" && (
+          <form onSubmit={handleCredentialsSave} className="space-y-3">
+            {connector.eli5Instructions.length > 0 && (
+              <details className="rounded-xl border border-slate-800 bg-obsidian-950/60 open:pb-2">
+                <summary className="px-3 py-2 text-xs font-semibold brand-text cursor-pointer flex items-center gap-1.5 list-none">
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  Setup help
+                </summary>
+                <ul className="px-3 pb-2 space-y-1 text-[11px] text-slate-300">
+                  {connector.eli5Instructions.map((inst, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <span className="brand-text font-bold">•</span>
+                      <span>{inst}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
 
-            {/* Field Inputs */}
-            <div className="space-y-3">
-              {connector.fieldsRequired.map((field) => (
+            <div className="space-y-2.5">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                {credentialsTitle}
+              </p>
+              {connector.fieldsRequired.map((field, idx) => (
                 <div key={field.key} className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-300 block">{field.label}</label>
+                  <label className="text-xs font-semibold text-slate-300 block">
+                    {field.label}
+                  </label>
                   <input
-                    type={field.isSecret ? 'password' : 'text'}
-                    value={fieldValues[field.key] || ''}
-                    onChange={(e) => setFieldValues({ ...fieldValues, [field.key]: e.target.value })}
+                    type={field.isSecret ? "password" : "text"}
+                    value={fieldValues[field.key] || ""}
+                    onChange={(e) =>
+                      setFieldValues({
+                        ...fieldValues,
+                        [field.key]: e.target.value,
+                      })
+                    }
                     placeholder={field.placeholder}
                     className="w-full px-3 py-2 rounded-xl glass-input text-xs font-mono"
+                    autoFocus={idx === 0 && !supportsIdp}
+                    required={idx === 0}
                   />
                 </div>
               ))}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+            <div className="flex justify-end gap-2 pt-1 border-t border-slate-800">
               <button
                 type="button"
                 onClick={onClose}
@@ -239,9 +260,10 @@ export const ConnectorSetupWizardModal: React.FC<ConnectorSetupWizardModalProps>
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-600/30"
+                className="px-5 py-2 rounded-xl brand-button font-bold text-xs brand-ring flex items-center gap-1.5"
               >
-                Save Credentials
+                Connect
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </form>

@@ -1,6 +1,29 @@
 import { ConnectorItem } from '../types';
+import { inferConnectorApproach } from './connectorApproaches';
 
-export const INITIAL_CONNECTORS_CATALOG: ConnectorItem[] = [
+type CatalogSeed = Omit<ConnectorItem, 'approach'> & Partial<Pick<ConnectorItem, 'approach' | 'surfaceRole' | 'startsAutonomously' | 'multiAppInOneMotion' | 'setupBurden' | 'configValues'>>;
+
+function enrich(seed: CatalogSeed): ConnectorItem {
+  const approach = seed.approach ?? inferConnectorApproach(seed);
+  return {
+    ...seed,
+    approach,
+    startsAutonomously: seed.startsAutonomously ?? (approach === 'ipaas' || approach === 'ai_assistant'),
+    multiAppInOneMotion:
+      seed.multiAppInOneMotion ?? (approach === 'ipaas' || approach === 'ai_assistant' || approach === 'direct_api'),
+    setupBurden:
+      seed.setupBurden ??
+      (approach === 'native_vendor' || approach === 'ai_assistant'
+        ? 'low'
+        : approach === 'mcp'
+          ? 'medium'
+          : approach === 'ipaas'
+            ? 'high'
+            : 'high'),
+  };
+}
+
+const RAW_CATALOG: CatalogSeed[] = [
   // MICROSOFT CONNECTORS (SOC2 / ISO27001 VETTED)
   {
     id: 'conn-ms-outlook',
@@ -196,6 +219,11 @@ export const INITIAL_CONNECTORS_CATALOG: ConnectorItem[] = [
     isVettedLegal: true,
     complianceCert: 'SOC2 Type II • ISO 27001 • GDPR',
     lastSynced: 'Just now',
+    approach: 'ipaas',
+    surfaceRole: 'automation',
+    startsAutonomously: true,
+    multiAppInOneMotion: true,
+    setupBurden: 'high',
     eli5Instructions: [
       'ELI5: n8n is your automated robot helper that connects to 400+ external apps.',
       'Step 1: Enter your local n8n Webhook Endpoint.',
@@ -337,4 +365,169 @@ export const INITIAL_CONNECTORS_CATALOG: ConnectorItem[] = [
       { key: 'connectionString', label: 'Local Connection String', placeholder: 'postgresql://localhost:5432/exec_dash' },
     ],
   },
+
+  // ── User-definable workspace tools (not hardcoded UI defaults) ──
+  {
+    id: 'conn-notion',
+    name: 'Notion',
+    ecosystem: 'Enterprise SaaS',
+    icon: 'FileText',
+    description: 'Action boards, databases, and executive task sync. Enable only if you choose Notion as a workspace tool.',
+    authType: 'API_KEY',
+    status: 'Not Connected',
+    isVettedLegal: true,
+    complianceCert: 'SOC2 Type II • GDPR',
+    approach: 'direct_api',
+    surfaceRole: 'actions',
+    startsAutonomously: false,
+    multiAppInOneMotion: false,
+    setupBurden: 'medium',
+    eli5Instructions: [
+      'ELI5: Paste your Notion integration secret and database ID to sync action cards.',
+      'Step 1: Create an internal Notion integration.',
+      'Step 2: Share your actions database with that integration.',
+      'Step 3: Paste the API key + database ID here.',
+    ],
+    fieldsRequired: [
+      { key: 'apiKey', label: 'Notion Integration Secret', placeholder: 'secret_…', isSecret: true },
+      { key: 'databaseId', label: 'Actions Database ID', placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' },
+    ],
+  },
+  {
+    id: 'conn-krisp',
+    name: 'Krisp',
+    ecosystem: 'Enterprise SaaS',
+    icon: 'Mic',
+    description: 'Meeting transcripts and AI extraction. Connect only if Krisp is one of your chosen tools.',
+    authType: 'API_KEY',
+    status: 'Not Connected',
+    isVettedLegal: true,
+    complianceCert: 'SOC2 Type II',
+    approach: 'direct_api',
+    surfaceRole: 'transcripts',
+    startsAutonomously: true,
+    multiAppInOneMotion: false,
+    setupBurden: 'low',
+    eli5Instructions: [
+      'ELI5: Connect Krisp so meeting notes can be pasted or auto-synced for decision extraction.',
+    ],
+    fieldsRequired: [
+      { key: 'apiKey', label: 'Krisp API Key (optional)', placeholder: 'krisp_…', isSecret: true },
+      { key: 'webhookUrl', label: 'Inbound Webhook (optional)', placeholder: 'https://…' },
+    ],
+  },
+  {
+    id: 'conn-mcp-filesystem',
+    name: 'MCP — Filesystem Server',
+    ecosystem: 'MCP',
+    icon: 'Database',
+    description: 'Model Context Protocol server for local file tools (chat-session only; one server per app).',
+    authType: 'MCP',
+    status: 'Not Connected',
+    isVettedLegal: true,
+    complianceCert: 'Local process • User-controlled',
+    approach: 'mcp',
+    surfaceRole: 'generic',
+    startsAutonomously: false,
+    multiAppInOneMotion: false,
+    setupBurden: 'medium',
+    eli5Instructions: [
+      'ELI5: Point at an MCP server command/URL your AI chat can call during a session.',
+    ],
+    fieldsRequired: [
+      { key: 'serverCommand', label: 'MCP Server Command / URL', placeholder: 'npx -y @modelcontextprotocol/server-filesystem ~/Docs' },
+    ],
+  },
+  {
+    id: 'conn-ipaas-zapier',
+    name: 'Zapier',
+    ecosystem: 'iPaaS',
+    icon: 'Share2',
+    description: 'iPaaS with AI steps — schedules and event triggers across many apps.',
+    authType: 'WEBHOOK',
+    status: 'Not Connected',
+    isVettedLegal: true,
+    complianceCert: 'SOC2 Type II',
+    approach: 'ipaas',
+    surfaceRole: 'automation',
+    startsAutonomously: true,
+    multiAppInOneMotion: true,
+    setupBurden: 'high',
+    eli5Instructions: [
+      'ELI5: Paste a Zapier webhook so Zaps can push events into this dashboard.',
+    ],
+    fieldsRequired: [
+      { key: 'webhookUrl', label: 'Zapier Catch Hook URL', placeholder: 'https://hooks.zapier.com/…' },
+    ],
+  },
+  {
+    id: 'conn-ipaas-make',
+    name: 'Make (Integromat)',
+    ecosystem: 'iPaaS',
+    icon: 'Share2',
+    description: 'Scenario-based iPaaS automation with AI modules and schedules.',
+    authType: 'WEBHOOK',
+    status: 'Not Connected',
+    isVettedLegal: true,
+    complianceCert: 'SOC2 Type II • GDPR',
+    approach: 'ipaas',
+    surfaceRole: 'automation',
+    startsAutonomously: true,
+    multiAppInOneMotion: true,
+    setupBurden: 'high',
+    eli5Instructions: [
+      'ELI5: Connect a Make webhook scenario to trigger dashboard updates.',
+    ],
+    fieldsRequired: [
+      { key: 'webhookUrl', label: 'Make Webhook URL', placeholder: 'https://hook.eu1.make.com/…' },
+    ],
+  },
+  {
+    id: 'conn-assistant-hermes',
+    name: 'Hermes Executive Agent',
+    ecosystem: 'AI Assistant',
+    icon: 'Bot',
+    description: 'AI-native assistant with schedules/triggers and multi-tool orchestration.',
+    authType: 'API_KEY',
+    status: 'Not Connected',
+    isVettedLegal: true,
+    complianceCert: 'Local / self-hosted',
+    approach: 'ai_assistant',
+    surfaceRole: 'assistant',
+    startsAutonomously: true,
+    multiAppInOneMotion: true,
+    setupBurden: 'low',
+    eli5Instructions: [
+      'ELI5: Point at your Hermes agent endpoint so it can run scheduled executive tasks.',
+    ],
+    fieldsRequired: [
+      { key: 'endpoint', label: 'Hermes Endpoint', placeholder: 'http://localhost:8080/v1/hermes' },
+      { key: 'apiKey', label: 'API Key (optional)', placeholder: '…', isSecret: true },
+    ],
+  },
+  {
+    id: 'conn-direct-custom-api',
+    name: 'Custom Direct API',
+    ecosystem: 'Custom',
+    icon: 'Code',
+    description: 'Bring your own REST endpoint + key. You own the glue for schedules and multi-app flows.',
+    authType: 'API_KEY',
+    status: 'Not Connected',
+    isVettedLegal: true,
+    complianceCert: 'User-managed',
+    approach: 'direct_api',
+    surfaceRole: 'generic',
+    startsAutonomously: true,
+    multiAppInOneMotion: true,
+    setupBurden: 'high',
+    eli5Instructions: [
+      'ELI5: Paste any HTTPS API base URL and key — you define what it does.',
+    ],
+    fieldsRequired: [
+      { key: 'baseUrl', label: 'API Base URL', placeholder: 'https://api.example.com/v1' },
+      { key: 'apiKey', label: 'API Key', placeholder: '…', isSecret: true },
+    ],
+  },
 ];
+
+export const INITIAL_CONNECTORS_CATALOG: ConnectorItem[] = RAW_CATALOG.map(enrich);

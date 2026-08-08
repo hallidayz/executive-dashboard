@@ -16,7 +16,7 @@ export const SIDEBAR_NAV_LABELS: Record<SidebarNavId, string> = {
   'product-portfolio': 'Product Delivery',
   'chief-of-staff': 'Chief of Staff',
   outlook: 'Outlook & Calendar',
-  'notion-krisp': 'Notion & Krisp',
+  'notion-krisp': 'Tools & Connectors',
   'app-launcher': 'App Launcher',
   'priority-alerts': 'Priority Alerts',
   'knowledge-clone': 'KB & AI Clone',

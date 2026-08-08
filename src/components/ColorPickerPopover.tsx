@@ -111,8 +111,8 @@ export const ColorPickerPopover: React.FC<ColorPickerPopoverProps> = ({
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const svRef = useRef<HTMLDivElement>(null);
-  const [hsva, setHsva] = useState<Hsva>(() => hexToHsva(normalizeHex(value, '#6366F1')));
-  const [hexDraft, setHexDraft] = useState(normalizeHex(value, '#6366F1'));
+  const [hsva, setHsva] = useState<Hsva>(() => hexToHsva(normalizeHex(value, '#FDA700')));
+  const [hexDraft, setHexDraft] = useState(normalizeHex(value, '#FDA700'));
   const [mode, setMode] = useState<ChannelMode>('rgb');
   const [coords, setCoords] = useState<{ top: number; left: number }>(() =>
     anchorRect
@@ -123,7 +123,7 @@ export const ColorPickerPopover: React.FC<ColorPickerPopoverProps> = ({
   const draggingHue = useRef(false);
 
   useEffect(() => {
-    const next = hexToHsva(normalizeHex(value, '#6366F1'));
+    const next = hexToHsva(normalizeHex(value, '#FDA700'));
     setHsva(next);
     setHexDraft(hsvaToHex(next));
   }, [value]);
@@ -402,7 +402,7 @@ interface ColorHexRowProps {
 export const ColorHexRow: React.FC<ColorHexRowProps> = ({
   label,
   value,
-  fallback = '#6366F1',
+  fallback = '#FDA700',
   onChange,
 }) => {
   const [open, setOpen] = useState(false);

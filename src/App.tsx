@@ -6,7 +6,7 @@ import { WidgetWorkspace } from './components/WidgetWorkspace';
 import { ProductExecutionHeatmap } from './components/ProductExecutionHeatmap';
 import { ChiefOfStaffView } from './components/ChiefOfStaffView';
 import { OutlookView } from './components/OutlookView';
-import { NotionKrispView } from './components/NotionKrispView';
+import { WorkspaceToolsView } from './components/NotionKrispView';
 import { AppLauncher } from './components/AppLauncher';
 import { PriorityAlertsView } from './components/PriorityAlertsView';
 import { KnowledgeBaseView } from './components/KnowledgeBaseView';
@@ -48,7 +48,7 @@ export function App() {
   const [aiMinimized, setAiMinimized] = useState(false);
 
   const [settings, setSettings] = useState<AppSettings>(storageService.getSettings());
-  const [viewMode, setViewMode] = useState<ViewMode>(settings.viewMode || 'grid');
+  const [viewMode, setViewMode] = useState<ViewMode>(settings.viewMode || 'list');
   const [calendar, setCalendar] = useState<CalendarEvent[]>(storageService.getCalendar());
   const [emails, setEmails] = useState<EmailMessage[]>(storageService.getEmails());
   const [notionActions, setNotionActions] = useState<NotionActionItem[]>(storageService.getNotionActions());
@@ -242,7 +242,7 @@ export function App() {
   const reloadWorkspaceFromStorage = () => {
     const nextSettings = storageService.getSettings();
     setSettings(nextSettings);
-    setViewMode(nextSettings.viewMode || 'grid');
+    setViewMode(nextSettings.viewMode || 'list');
     applyThemePreference(nextSettings.theme || 'system');
     applyBranding(nextSettings);
     setCalendar(storageService.getCalendar());
@@ -314,6 +314,7 @@ export function App() {
               alerts={priorityAlerts}
               kb={knowledgeEntries}
               personaRules={personaRules}
+              connectors={settings.connectors || []}
               userName={settings.userName}
               workspaceName={settings.workspaceName || 'Command Center'}
               onNavigateTab={setActiveTab}
@@ -327,6 +328,10 @@ export function App() {
               onTogglePinApp={handleTogglePinApp}
               onToggleAlertHandled={handleToggleAlertHandled}
               onAddKnowledgeEntry={handleAddKnowledgeEntry}
+              onOpenConnectorsSettings={() => {
+                setSettingsSubTab('connectors');
+                setActiveTab('settings');
+              }}
             />
           )}
 
@@ -348,12 +353,17 @@ export function App() {
           )}
 
           {activeTab === 'notion-krisp' && (
-            <NotionKrispView
+            <WorkspaceToolsView
+              connectors={settings.connectors || []}
               notionActions={notionActions}
               krispTranscripts={krispTranscripts}
               onAddNotionAction={handleAddNotionAction}
               onAddKrispTranscript={handleAddKrispTranscript}
               onToggleNotionStatus={handleToggleNotionStatus}
+              onOpenConnectorsSettings={() => {
+                setSettingsSubTab('connectors');
+                setActiveTab('settings');
+              }}
             />
           )}
 
