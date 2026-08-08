@@ -68,7 +68,10 @@ export const storageService = {
     const data = localStorage.getItem(KEYS.SETTINGS);
     if (!data) return mergeSettingsSecrets({ ...INITIAL_SETTINGS }, loadSecretsVault());
     try {
-      const parsed = JSON.parse(data) as Partial<AppSettings>;
+      const parsed = JSON.parse(data) as Partial<AppSettings> & {
+        /** Legacy field migrated → primaryFontColor */
+        brandFontColor?: string;
+      };
       // One-time legacy default only: missing brandPreset + indigo accent → Halliday.
       // Explicit brandPreset: 'indigo' (Indigo Pulse) must never be overwritten.
       const legacyIndigoDefault =
