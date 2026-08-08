@@ -392,20 +392,32 @@ export function applyBranding(settings: BrandingSettings): void {
   root.style.setProperty('--color-secondary-charcoal', '#333F3F');
   root.style.setProperty('--color-secondary-silver', '#B0B5B3');
   root.style.setProperty('--color-secondary-muted-fill', '#D8D8D6');
-  root.style.setProperty('--bg-page', 'var(--color-primary-canvas)');
-  root.style.setProperty('--bg-section-alt', 'var(--color-secondary-muted-fill)');
-  root.style.setProperty('--text-heading', 'var(--color-primary-navy)');
-  root.style.setProperty('--text-body', 'var(--color-secondary-charcoal)');
-  root.style.setProperty('--text-muted', 'var(--color-secondary-silver)');
-  root.style.setProperty('--border-subtle', 'var(--color-secondary-silver)');
   root.style.setProperty('--accent-cta', accent);
   /* Semantic status — never driven by brand remaps (see halliday-brand-guide/) */
   root.style.setProperty('--status-critical', '#E11D48');
   root.style.setProperty('--status-warning', '#F59E0B');
   root.style.setProperty('--status-success', '#059669');
 
+  // Functional text/bg tokens must follow shell theme (dark default vs light canvas).
+  const isDarkShell =
+    root.classList.contains('dark') || !root.classList.contains('light');
+  if (isDarkShell) {
+    root.style.setProperty('--bg-page', '#0b0d12');
+    root.style.setProperty('--bg-section-alt', '#161b27');
+    root.style.setProperty('--text-heading', '#f8fafc');
+    root.style.setProperty('--text-body', '#e2e8f0');
+    root.style.setProperty('--text-muted', '#94a3b8');
+    root.style.setProperty('--border-subtle', 'rgba(255, 255, 255, 0.12)');
+  } else {
+    root.style.setProperty('--bg-page', 'var(--color-primary-canvas)');
+    root.style.setProperty('--bg-section-alt', 'var(--color-secondary-muted-fill)');
+    root.style.setProperty('--text-heading', 'var(--color-primary-navy)');
+    root.style.setProperty('--text-body', 'var(--color-secondary-charcoal)');
+    root.style.setProperty('--text-muted', 'var(--color-secondary-silver)');
+    root.style.setProperty('--border-subtle', 'var(--color-secondary-silver)');
+  }
+
   // Navy/charcoal fonts are for light canvas; lift them on dark shells.
-  const isDarkShell = root.classList.contains('dark');
   const fontPrimary =
     isDarkShell && primaryFont.toUpperCase() === '#02295B' ? '#FDA700' : primaryFont;
   const fontSecondary =

@@ -1,18 +1,12 @@
 import { SystemDiscoveredSkill } from '../types';
+import { detectDesktopOs, detectMobileOs } from './clientEnvironment';
 
 export type HostPlatform = 'windows' | 'mac' | 'linux';
 
-/** Detect OS in the browser; Electron can also set VITE_PLATFORM. */
+/** Detect desktop OS; mobile browsers fall back to linux paths for mock skill URLs. */
 export function detectHostPlatform(): HostPlatform {
-  const override = import.meta.env.VITE_PLATFORM as string | undefined;
-  if (override === 'windows' || override === 'mac' || override === 'linux') {
-    return override;
-  }
-
-  const ua = navigator.userAgent;
-  if (/Windows/i.test(ua)) return 'windows';
-  if (/Mac OS X|Macintosh/i.test(ua)) return 'mac';
-  return 'linux';
+  if (detectMobileOs()) return 'linux';
+  return detectDesktopOs();
 }
 
 /**

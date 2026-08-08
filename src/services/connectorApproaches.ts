@@ -1,4 +1,5 @@
 import type { ConnectorApproach, ConnectorItem } from '../types';
+import { sanitizeConnectorInstructions } from './secretsVault';
 
 export interface ConnectorApproachMeta {
   id: ConnectorApproach;
@@ -75,11 +76,15 @@ export function approachShortLabel(id: ConnectorApproach | undefined): string {
   }
 }
 
-export function connectorSetupCta(connector: Pick<ConnectorItem, 'authType' | 'status'>): string {
-  if (connector.status === 'Connected') return 'Reconfigure';
+export function connectorSetupCta(
+  connector: Pick<ConnectorItem, 'authType' | 'status' | 'liveVerified' | 'connectionMode'>
+): string {
+  if (connector.status === 'Connected') {
+    return connector.liveVerified ? 'Reconfigure' : 'Reconfigure demo';
+  }
   switch (connector.authType) {
     case 'IDP_OAUTH':
-      return 'Sign in & connect';
+      return 'Demo connect';
     case 'WEBHOOK':
       return 'Add webhook';
     case 'MCP':
@@ -88,6 +93,12 @@ export function connectorSetupCta(connector: Pick<ConnectorItem, 'authType' | 's
     default:
       return 'Connect';
   }
+}
+
+export function isConnectorEnabled(
+  connector: Pick<ConnectorItem, 'status'>
+): boolean {
+  return connector.status === 'Connected';
 }
 
 export function inferConnectorApproach(
@@ -111,7 +122,11 @@ export function normalizeConnectorsCatalog(
 ): ConnectorItem[] {
   const byId = new Map<string, ConnectorItem>();
   for (const c of catalog) {
-    byId.set(c.id, { ...c, approach: c.approach ?? inferConnectorApproach(c) });
+    byId.set(c.id, {
+      ...c,
+      approach: c.approach ?? inferConnectorApproach(c),
+      eli5Instructions: sanitizeConnectorInstructions(c.eli5Instructions || []),
+    });
   }
   for (const c of saved || []) {
     const base = byId.get(c.id);
@@ -124,10 +139,31 @@ export function normalizeConnectorsCatalog(
       multiAppInOneMotion: c.multiAppInOneMotion ?? base?.multiAppInOneMotion,
       setupBurden: c.setupBurden ?? base?.setupBurden,
       configValues: { ...(base?.configValues || {}), ...(c.configValues || {}) },
+      connectionMode: c.connectionMode ?? base?.connectionMode,
+      liveVerified: c.liveVerified ?? base?.liveVerified,
+      eli5Instructions: sanitizeConnectorInstructions(
+        c.eli5Instructions?.length
+          ? c.eli5Instructions
+          : base?.eli5Instructions || []
+      ),
     });
   }
 
-  const list = [...byId.values()];
+  const list = [...byId.values()].map((c) => {
+    // Until live adapters exist, Connected means local demo — never imply verified.
+    if (c.status === 'Connected' && c.liveVerified !== true) {
+      return {
+        ...c,
+        connectionMode: c.connectionMode || 'demo',
+        liveVerified: false,
+        eli5Instructions: sanitizeConnectorInstructions(c.eli5Instructions || []),
+      };
+    }
+    return {
+      ...c,
+      eli5Instructions: sanitizeConnectorInstructions(c.eli5Instructions || []),
+    };
+  });
 
   // Migrate Personalization Notion keys → connector config
   const notion = list.find((c) => c.id === 'conn-notion');
@@ -139,6 +175,8 @@ export function normalizeConnectorsCatalog(
       notion.status = 'Connected';
       notion.connectedUser = notion.connectedUser || 'Migrated from Personalization';
       notion.lastSynced = notion.lastSynced || 'Migrated';
+      notion.connectionMode = notion.connectionMode || 'demo';
+      notion.liveVerified = false;
     }
     notion.configValues = cfg;
   }
@@ -148,6 +186,8 @@ export function normalizeConnectorsCatalog(
     krisp.status = 'Connected';
     krisp.configValues = { ...(krisp.configValues || {}), autoSync: 'true' };
     krisp.lastSynced = krisp.lastSynced || 'Migrated';
+    krisp.connectionMode = krisp.connectionMode || 'demo';
+    krisp.liveVerified = false;
   }
 
   return list;
@@ -164,4 +204,65 @@ export function connectedWorkspaceTools(connectors: ConnectorItem[]): {
     actions: connected.find((c) => c.surfaceRole === 'actions'),
     transcripts: connected.find((c) => c.surfaceRole === 'transcripts'),
   };
+}
+
+/** Synthetic local-demo surfaces when useMockData and no connector surfaces yet. */
+export const LOCAL_DEMO_ACTIONS_TOOL: ConnectorItem = {
+  id: 'local-demo-actions',
+  name: 'Local demo actions',
+  ecosystem: 'Custom',
+  icon: 'CheckSquare',
+  description: 'On-device actions board (mock data).',
+  authType: 'API_KEY',
+  status: 'Connected',
+  isVettedLegal: true,
+  complianceCert: 'Local only',
+  eli5Instructions: [],
+  fieldsRequired: [],
+  approach: 'direct_api',
+  surfaceRole: 'actions',
+  connectionMode: 'demo',
+  liveVerified: false,
+};
+
+export const LOCAL_DEMO_TRANSCRIPTS_TOOL: ConnectorItem = {
+  id: 'local-demo-transcripts',
+  name: 'Local demo transcripts',
+  ecosystem: 'Custom',
+  icon: 'Mic',
+  description: 'On-device transcript parser (mock data).',
+  authType: 'API_KEY',
+  status: 'Connected',
+  isVettedLegal: true,
+  complianceCert: 'Local only',
+  eli5Instructions: [],
+  fieldsRequired: [],
+  approach: 'direct_api',
+  surfaceRole: 'transcripts',
+  connectionMode: 'demo',
+  liveVerified: false,
+};
+
+export function resolveWorkspaceTools(
+  connectors: ConnectorItem[],
+  options?: { useMockData?: boolean }
+): {
+  actions?: ConnectorItem;
+  transcripts?: ConnectorItem;
+  connected: ConnectorItem[];
+  isLocalDemoFallback: boolean;
+} {
+  const base = connectedWorkspaceTools(connectors);
+  if (base.actions || base.transcripts) {
+    return { ...base, isLocalDemoFallback: false };
+  }
+  if (options?.useMockData) {
+    return {
+      connected: base.connected,
+      actions: LOCAL_DEMO_ACTIONS_TOOL,
+      transcripts: LOCAL_DEMO_TRANSCRIPTS_TOOL,
+      isLocalDemoFallback: true,
+    };
+  }
+  return { ...base, isLocalDemoFallback: false };
 }

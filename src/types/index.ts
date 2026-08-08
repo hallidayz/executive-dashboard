@@ -76,8 +76,15 @@ export interface ConnectorItem {
   startsAutonomously?: boolean;
   multiAppInOneMotion?: boolean;
   setupBurden?: 'low' | 'medium' | 'high';
-  /** User-filled field values from the connect wizard. */
+  /** User-filled field values from the connect wizard (non-secret). Secrets → secretsVault. */
   configValues?: Record<string, string>;
+  /**
+   * demo = local-only enablement (no live OAuth/API verify).
+   * live = real integration verified (future).
+   */
+  connectionMode?: 'demo' | 'live';
+  /** True only after a successful live health-check / OAuth. */
+  liveVerified?: boolean;
 }
 
 /** Integration wiring model — drives Settings + Tools workspace. */
@@ -146,6 +153,9 @@ export interface AIProviderConfig {
   /** Set when connected from the free-tier catalog */
   freeSourceId?: string;
   tier?: 'local' | 'paid' | 'free';
+  /** demo until a live ping succeeds */
+  connectionMode?: 'demo' | 'live';
+  liveVerified?: boolean;
 }
 
 export interface ProductLine {

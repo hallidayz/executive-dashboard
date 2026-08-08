@@ -1,14 +1,45 @@
 /**
- * Optional desktop shell. Day-to-day development: `npm run dev` (Vite) on Mac or Windows.
- * Packaged/desktop run: `npm run build` then `npm run electron`.
+ * Optional desktop shell. Day-to-day: `npm run electron:dev` (Vite + Electron).
+ * Packaged: `npm run build` then `npm run electron`.
  *
- * Auto-start uses Electron's login-item API (works on both darwin and win32).
- * Preference is read from OPEN_AT_LOGIN env, default true for packaged demos.
+ * Secrets use Electron safeStorage (OS keychain-backed encryption).
  */
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, safeStorage } = require('electron');
 const path = require('path');
 
 let mainWindow;
+
+function registerSecretIpc() {
+  ipcMain.handle('secrets:is-available', () => {
+    try {
+      return Boolean(safeStorage.isEncryptionAvailable());
+    } catch {
+      return false;
+    }
+  });
+
+  ipcMain.handle('secrets:encrypt', (_event, plainText) => {
+    if (typeof plainText !== 'string') {
+      throw new Error('encrypt expects a string');
+    }
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error('safeStorage encryption is not available on this machine');
+    }
+    const buf = safeStorage.encryptString(plainText);
+    return buf.toString('base64');
+  });
+
+  ipcMain.handle('secrets:decrypt', (_event, payload) => {
+    if (typeof payload !== 'string') {
+      throw new Error('decrypt expects a base64 string');
+    }
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error('safeStorage encryption is not available on this machine');
+    }
+    const buf = Buffer.from(payload, 'base64');
+    return safeStorage.decryptString(buf);
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -22,6 +53,7 @@ function createWindow() {
     // contextIsolation:false — older electron/main.js once used those insecure
     // defaults; this shell must not regress.
     webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -36,12 +68,12 @@ function createWindow() {
     mainWindow = null;
   });
 
-  const openAtLogin = process.env.OPEN_AT_LOGIN !== 'false';
+  // Personal use: default login-item off so install doesn't surprise you.
+  const openAtLogin = process.env.OPEN_AT_LOGIN === 'true';
   try {
     app.setLoginItemSettings({
       openAtLogin,
       openAsHidden: false,
-      // path is honored on Windows; macOS uses the app bundle path automatically
       path: process.platform === 'win32' ? process.execPath : undefined,
     });
   } catch (err) {
@@ -50,6 +82,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  registerSecretIpc();
   createWindow();
 
   app.on('activate', () => {

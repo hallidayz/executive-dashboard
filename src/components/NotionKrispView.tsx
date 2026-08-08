@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Mic, Plus, CheckSquare, Sparkles, Settings2, Plug } from 'lucide-react';
 import { NotionActionItem, KrispTranscription, ConnectorItem } from '../types';
 import { parseKrispNote } from '../services/krispParser';
-import { approachLabel, connectedWorkspaceTools } from '../services/connectorApproaches';
+import { approachLabel, resolveWorkspaceTools } from '../services/connectorApproaches';
 
 interface WorkspaceToolsViewProps {
   connectors: ConnectorItem[];
@@ -12,6 +12,8 @@ interface WorkspaceToolsViewProps {
   onAddKrispTranscript: (transcript: KrispTranscription) => void;
   onToggleNotionStatus: (id: string) => void;
   onOpenConnectorsSettings?: () => void;
+  /** When true, show local demo boards even if no connector surfaces are enabled. */
+  useMockData?: boolean;
 }
 
 function priorityBadgeClass(priority: string): string {
@@ -33,10 +35,21 @@ export const WorkspaceToolsView: React.FC<WorkspaceToolsViewProps> = ({
   onAddKrispTranscript,
   onToggleNotionStatus,
   onOpenConnectorsSettings,
+  useMockData = true,
 }) => {
-  const { actions: actionsTool, transcripts: transcriptsTool, connected } =
-    connectedWorkspaceTools(connectors);
+  const {
+    actions: actionsTool,
+    transcripts: transcriptsTool,
+    connected,
+    isLocalDemoFallback,
+  } = resolveWorkspaceTools(connectors, { useMockData });
   const hasWorkspaceSurfaces = Boolean(actionsTool || transcriptsTool);
+  const showLocalDemoBadge =
+    isLocalDemoFallback ||
+    actionsTool?.connectionMode === 'demo' ||
+    transcriptsTool?.connectionMode === 'demo' ||
+    (actionsTool && !actionsTool.liveVerified) ||
+    (transcriptsTool && !transcriptsTool.liveVerified);
 
   const [rawKrispText, setRawKrispText] = useState('');
   const [krispTitle, setKrispTitle] = useState('');
@@ -141,10 +154,19 @@ export const WorkspaceToolsView: React.FC<WorkspaceToolsViewProps> = ({
   return (
     <div className="space-y-4">
       <div className="glass-panel p-4 rounded-2xl border brand-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="font-bold text-slate-100 text-base">Tools &amp; workspace surfaces</h2>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="font-bold text-slate-100 text-base">Tools &amp; workspace surfaces</h2>
+            {showLocalDemoBadge && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-200 border border-amber-500/30 text-[10px] font-bold">
+                Local demo
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-400">
-            Driven by your Connectors configuration
+            {isLocalDemoFallback
+              ? 'Showing on-device demo boards — connect tools in Settings to replace these surfaces.'
+              : 'Driven by your Connectors configuration'}
             {actionsTool ? ` · Actions: ${actionsTool.name}` : ''}
             {transcriptsTool ? ` · Transcripts: ${transcriptsTool.name}` : ''}
           </p>

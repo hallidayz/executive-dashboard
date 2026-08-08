@@ -36,6 +36,13 @@ html.dark {
   --app-fg: #f8fafc;
   --app-muted: #94a3b8;
   --app-border: rgba(255, 255, 255, 0.08);
+  /* Functional tokens for dark shell (applyBranding reinforces these) */
+  --bg-page: #0b0d12;
+  --bg-section-alt: #161b27;
+  --text-heading: #f8fafc;
+  --text-body: #e2e8f0;
+  --text-muted: #94a3b8;
+  --border-subtle: rgba(255, 255, 255, 0.12);
   --glass-panel: rgba(17, 20, 29, 0.9);
   --glass-card: rgba(22, 27, 39, 0.75);
   --glass-input: rgba(11, 13, 18, 0.85);
@@ -82,6 +89,12 @@ html.light {
   --header-bg: color-mix(in srgb, #ffffff 90%, var(--color-primary-canvas));
   --scroll-track: var(--color-secondary-muted-fill);
   --scroll-thumb: var(--color-secondary-silver);
+  --bg-page: var(--color-primary-canvas);
+  --bg-section-alt: var(--color-secondary-muted-fill);
+  --text-heading: var(--color-primary-navy);
+  --text-body: var(--color-secondary-charcoal);
+  --text-muted: var(--color-secondary-silver);
+  --border-subtle: var(--color-secondary-silver);
   --brand-font: var(--color-primary-navy);
   --brand-font-secondary: var(--color-secondary-charcoal);
   --brand-on-accent: var(--color-primary-navy);

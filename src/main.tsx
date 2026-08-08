@@ -5,14 +5,29 @@ import App from './App.tsx'
 import { storageService } from './services/storageService'
 import { applyThemePreference } from './services/themeService'
 import { applyBranding } from './services/brandingService'
+import { hydrateSecretsVault } from './services/secretsVault'
 
-// Apply theme + brand colors before first paint to avoid a flash.
-const bootSettings = storageService.getSettings()
-applyThemePreference(bootSettings.theme || 'system')
-applyBranding(bootSettings)
+async function boot() {
+  // Decrypt / migrate secrets before first settings read.
+  await hydrateSecretsVault()
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+  const bootSettings = storageService.getSettings()
+  applyThemePreference(bootSettings.theme || 'system')
+  applyBranding(bootSettings)
+
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+}
+
+boot().catch((err) => {
+  console.error('Boot failed:', err)
+  // Last-resort render so the user still sees an error surface.
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+})

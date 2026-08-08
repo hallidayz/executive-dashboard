@@ -3,16 +3,19 @@ import {
   X,
   Shield,
   HelpCircle,
-  Lock,
-  User,
   ArrowRight,
   Key,
+  AlertTriangle,
 } from "lucide-react";
 import { ConnectorItem } from "../types";
 import {
   approachLabel,
   approachShortLabel,
 } from "../services/connectorApproaches";
+import {
+  isSecretConfigKey,
+  isSecretUnchanged,
+} from "../services/secretsVault";
 
 interface ConnectorSetupWizardModalProps {
   isOpen: boolean;
@@ -21,47 +24,68 @@ interface ConnectorSetupWizardModalProps {
   onSaveConnector: (connector: ConnectorItem) => void;
 }
 
-type SetupMode = "IDP_LOGIN" | "CREDENTIALS";
+type SetupMode = "DEMO" | "CREDENTIALS";
 
 export const ConnectorSetupWizardModal: React.FC<
   ConnectorSetupWizardModalProps
 > = ({ isOpen, onClose, connector, onSaveConnector }) => {
-  const supportsIdp = connector?.authType === "IDP_OAUTH";
+  const supportsDemoIdp = connector?.authType === "IDP_OAUTH";
   const [activeMode, setActiveMode] = useState<SetupMode>("CREDENTIALS");
-  const [username, setUsername] = useState("alex.halliday@enterprise.com");
-  const [password, setPassword] = useState("••••••••••••");
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [demoLabel, setDemoLabel] = useState("");
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [hadSecrets, setHadSecrets] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!connector) return;
-    setActiveMode(connector.authType === "IDP_OAUTH" ? "IDP_LOGIN" : "CREDENTIALS");
-    setFieldValues({ ...(connector.configValues || {}) });
-    setIsAuthenticating(false);
+    setActiveMode(connector.authType === "IDP_OAUTH" ? "DEMO" : "CREDENTIALS");
+    setDemoLabel(connector.connectedUser || "");
+    const next: Record<string, string> = {};
+    const secretsPresent: Record<string, boolean> = {};
+    for (const field of connector.fieldsRequired) {
+      const existing = connector.configValues?.[field.key];
+      if (field.isSecret || isSecretConfigKey(field.key)) {
+        secretsPresent[field.key] = Boolean(existing);
+        next[field.key] = "";
+      } else {
+        next[field.key] = existing || "";
+      }
+    }
+    setHadSecrets(secretsPresent);
+    setFieldValues(next);
   }, [connector]);
 
   if (!isOpen || !connector) return null;
 
   const finishConnect = (patch: Partial<ConnectorItem>) => {
+    const mergedConfig = { ...(connector.configValues || {}) };
+    for (const [key, value] of Object.entries(fieldValues)) {
+      if (isSecretConfigKey(key) || connector.fieldsRequired.find((f) => f.key === key)?.isSecret) {
+        if (!isSecretUnchanged(value)) {
+          mergedConfig[key] = value;
+        }
+        // blank → keep previous secret in vault via unchanged configValues key
+      } else {
+        mergedConfig[key] = value;
+      }
+    }
+
     onSaveConnector({
       ...connector,
       status: "Connected",
-      lastSynced: "Just now",
-      configValues: { ...(connector.configValues || {}), ...fieldValues },
+      lastSynced: "Local demo",
+      connectionMode: "demo",
+      liveVerified: false,
+      configValues: mergedConfig,
       ...patch,
     });
     onClose();
   };
 
-  const handleIdpLogin = (e: React.FormEvent) => {
+  const handleDemoEnable = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsAuthenticating(true);
-    setTimeout(() => {
-      setIsAuthenticating(false);
-      finishConnect({
-        connectedUser: username || "user@enterprise.com",
-      });
-    }, 600);
+    finishConnect({
+      connectedUser: demoLabel.trim() || "Local demo user",
+    });
   };
 
   const handleCredentialsSave = (e: React.FormEvent) => {
@@ -88,6 +112,9 @@ export const ConnectorSetupWizardModal: React.FC<
               <span className="px-2 py-0.5 rounded-full brand-bg-soft brand-text border brand-border text-[10px] font-bold">
                 {approachShortLabel(connector.approach)}
               </span>
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-200 border border-amber-500/30 text-[10px] font-bold">
+                Local demo
+              </span>
             </div>
             <p className="text-xs text-slate-400 leading-snug">
               {connector.description}
@@ -107,19 +134,27 @@ export const ConnectorSetupWizardModal: React.FC<
           </button>
         </div>
 
-        {supportsIdp && (
+        <div className="p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-[11px] text-amber-100/90 flex items-start gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>
+            This enables the tool locally only. There is no live OAuth or API
+            verification yet — do not enter a real IdP password here.
+          </span>
+        </div>
+
+        {supportsDemoIdp && (
           <div className="flex items-center gap-1 bg-obsidian-900 p-1 rounded-xl border border-slate-800">
             <button
               type="button"
-              onClick={() => setActiveMode("IDP_LOGIN")}
+              onClick={() => setActiveMode("DEMO")}
               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                activeMode === "IDP_LOGIN"
+                activeMode === "DEMO"
                   ? "brand-button shadow-md"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              <Lock className="w-3.5 h-3.5" />
-              Sign in
+              <Shield className="w-3.5 h-3.5" />
+              Demo connect
             </button>
             <button
               type="button"
@@ -131,51 +166,30 @@ export const ConnectorSetupWizardModal: React.FC<
               }`}
             >
               <Key className="w-3.5 h-3.5" />
-              Manual fields
+              Store fields
             </button>
           </div>
         )}
 
-        {activeMode === "IDP_LOGIN" && supportsIdp && (
-          <form onSubmit={handleIdpLogin} className="space-y-3">
+        {activeMode === "DEMO" && supportsDemoIdp && (
+          <form onSubmit={handleDemoEnable} className="space-y-3">
             <div className="p-3 rounded-xl glass-card border brand-border space-y-3">
-              <p className="text-xs text-slate-300 flex items-start gap-2">
-                <Shield className="w-4 h-4 brand-text shrink-0 mt-0.5" />
-                <span>
-                  Sign in with your {connector.ecosystem} account. OAuth tokens
-                  are handled automatically.
-                </span>
+              <p className="text-xs text-slate-300">
+                Enable <strong>{connector.name}</strong> for local workspace
+                surfaces. Optional label only — no password, no token exchange.
               </p>
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold text-slate-400 block">
-                  Email
+                  Display label (optional)
                 </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl glass-input text-xs"
-                    autoFocus
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-slate-400 block">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl glass-input text-xs"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={demoLabel}
+                  onChange={(e) => setDemoLabel(e.target.value)}
+                  placeholder="e.g. Work account"
+                  className="w-full px-3 py-2 rounded-xl glass-input text-xs"
+                  autoFocus
+                />
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-1">
@@ -188,17 +202,10 @@ export const ConnectorSetupWizardModal: React.FC<
               </button>
               <button
                 type="submit"
-                disabled={isAuthenticating}
                 className="px-5 py-2 rounded-xl brand-button font-bold text-xs flex items-center gap-2 brand-ring"
               >
-                {isAuthenticating ? (
-                  "Connecting…"
-                ) : (
-                  <>
-                    Connect
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </>
-                )}
+                Enable local demo
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </form>
@@ -227,27 +234,47 @@ export const ConnectorSetupWizardModal: React.FC<
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 {credentialsTitle}
               </p>
-              {connector.fieldsRequired.map((field, idx) => (
-                <div key={field.key} className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-300 block">
-                    {field.label}
-                  </label>
-                  <input
-                    type={field.isSecret ? "password" : "text"}
-                    value={fieldValues[field.key] || ""}
-                    onChange={(e) =>
-                      setFieldValues({
-                        ...fieldValues,
-                        [field.key]: e.target.value,
-                      })
-                    }
-                    placeholder={field.placeholder}
-                    className="w-full px-3 py-2 rounded-xl glass-input text-xs font-mono"
-                    autoFocus={idx === 0 && !supportsIdp}
-                    required={idx === 0}
-                  />
-                </div>
-              ))}
+              {connector.fieldsRequired.map((field, idx) => {
+                const secret =
+                  Boolean(field.isSecret) || isSecretConfigKey(field.key);
+                return (
+                  <div key={field.key} className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-300 block">
+                      {field.label}
+                      {secret && hadSecrets[field.key] && (
+                        <span className="ml-2 text-[10px] text-slate-500 font-normal">
+                          (saved — leave blank to keep)
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      type={secret ? "password" : "text"}
+                      value={fieldValues[field.key] || ""}
+                      onChange={(e) =>
+                        setFieldValues({
+                          ...fieldValues,
+                          [field.key]: e.target.value,
+                        })
+                      }
+                      placeholder={
+                        secret && hadSecrets[field.key]
+                          ? "••••••••"
+                          : field.placeholder
+                      }
+                      className="w-full px-3 py-2 rounded-xl glass-input text-xs font-mono"
+                      autoFocus={idx === 0 && !supportsDemoIdp}
+                      required={
+                        !secret && idx === 0
+                          ? true
+                          : secret
+                            ? !hadSecrets[field.key] && idx === 0
+                            : false
+                      }
+                      autoComplete={secret ? "new-password" : "off"}
+                    />
+                  </div>
+                );
+              })}
             </div>
 
             <div className="flex justify-end gap-2 pt-1 border-t border-slate-800">
@@ -262,7 +289,7 @@ export const ConnectorSetupWizardModal: React.FC<
                 type="submit"
                 className="px-5 py-2 rounded-xl brand-button font-bold text-xs brand-ring flex items-center gap-1.5"
               >
-                Connect
+                Save local demo
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>

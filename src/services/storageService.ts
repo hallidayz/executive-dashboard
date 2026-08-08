@@ -24,6 +24,16 @@ import {
 import { normalizeSidebarNavOrder, syncWidgetsToNavOrder } from './navOrder';
 import { normalizeConnectorsCatalog } from './connectorApproaches';
 import { INITIAL_CONNECTORS_CATALOG } from './connectorsCatalog';
+import {
+  SECRETS_ENC_STORAGE_KEY,
+  SECRETS_STORAGE_KEY,
+  clearSecretsVault,
+  loadSecretsVault,
+  mergeSettingsSecrets,
+  redactSecretsInExportData,
+  saveSecretsVault,
+  splitSettingsSecrets,
+} from './secretsVault';
 
 const KEYS = {
   SETTINGS: 'exec_dash_settings',
@@ -39,28 +49,33 @@ const KEYS = {
   CUSTOM_SKILLS: 'executive_dashboard_custom_skills_v1',
 };
 
+/** Public workspace keys only — secrets vault is never included unless opted in. */
+const EXPORT_PUBLIC_KEYS = Object.values(KEYS);
+
 export const WORKSPACE_EXPORT_VERSION = 1;
 
 export interface WorkspaceExportPayload {
   version: number;
   exportedAt: string;
   platformHint?: string;
+  /** When false/undefined, secrets vault was omitted and settings keys were redacted. */
+  includeSecrets?: boolean;
   data: Record<string, unknown>;
 }
 
 export const storageService = {
   getSettings(): AppSettings {
     const data = localStorage.getItem(KEYS.SETTINGS);
-    if (!data) return { ...INITIAL_SETTINGS };
+    if (!data) return mergeSettingsSecrets({ ...INITIAL_SETTINGS }, loadSecretsVault());
     try {
       const parsed = JSON.parse(data) as Partial<AppSettings>;
-      // Migrate older localStorage blobs missing newer fields.
-      // Legacy indigo default → Halliday Corporate (see halliday-brand-guide/).
-      const legacyIndigo =
-        (!parsed.brandPreset || parsed.brandPreset === 'indigo') &&
+      // One-time legacy default only: missing brandPreset + indigo accent → Halliday.
+      // Explicit brandPreset: 'indigo' (Indigo Pulse) must never be overwritten.
+      const legacyIndigoDefault =
+        parsed.brandPreset == null &&
         (!parsed.accentColor || String(parsed.accentColor).toUpperCase() === '#6366F1');
 
-      const brandDefaults = legacyIndigo
+      const brandDefaults = legacyIndigoDefault
         ? {
             brandPreset: INITIAL_SETTINGS.brandPreset,
             accentColor: INITIAL_SETTINGS.accentColor,
@@ -76,7 +91,12 @@ export const storageService = {
           }
         : {};
 
-      return {
+      const vault = loadSecretsVault();
+      // Migrate secrets still embedded in older settings blobs into the vault once.
+      const embeddedNotion = parsed.notionApiKey || vault.notionApiKey;
+      const embeddedLlm = parsed.customLlmApiKey || vault.customLlmApiKey;
+
+      const merged: AppSettings = {
         ...INITIAL_SETTINGS,
         ...parsed,
         ...brandDefaults,
@@ -151,19 +171,25 @@ export const storageService = {
           parsed.connectors,
           INITIAL_CONNECTORS_CATALOG,
           {
-            notionApiKey: parsed.notionApiKey,
+            notionApiKey: embeddedNotion || parsed.notionApiKey,
             notionDatabaseId: parsed.notionDatabaseId,
             notionConnected: parsed.notionConnected,
             krispAutoSync: parsed.krispAutoSync,
           }
         ),
+        notionApiKey: embeddedNotion || '',
+        customLlmApiKey: embeddedLlm || '',
       };
+
+      return mergeSettingsSecrets(merged, vault);
     } catch {
-      return { ...INITIAL_SETTINGS };
+      return mergeSettingsSecrets({ ...INITIAL_SETTINGS }, loadSecretsVault());
     }
   },
   saveSettings(settings: AppSettings): void {
-    localStorage.setItem(KEYS.SETTINGS, JSON.stringify(settings));
+    const { publicSettings, vault } = splitSettingsSecrets(settings);
+    localStorage.setItem(KEYS.SETTINGS, JSON.stringify(publicSettings));
+    saveSecretsVault(vault);
   },
 
   getCalendar(): CalendarEvent[] {
@@ -231,7 +257,9 @@ export const storageService = {
   },
 
   resetAllToMock(): void {
-    localStorage.setItem(KEYS.SETTINGS, JSON.stringify(INITIAL_SETTINGS));
+    const { publicSettings, vault } = splitSettingsSecrets({ ...INITIAL_SETTINGS });
+    localStorage.setItem(KEYS.SETTINGS, JSON.stringify(publicSettings));
+    saveSecretsVault(vault);
     localStorage.setItem(KEYS.CALENDAR, JSON.stringify(MOCK_CALENDAR));
     localStorage.setItem(KEYS.EMAILS, JSON.stringify(MOCK_EMAILS));
     localStorage.setItem(KEYS.NOTION, JSON.stringify(MOCK_NOTION_ACTIONS));
@@ -246,10 +274,14 @@ export const storageService = {
     );
   },
 
-  /** Snapshot all dashboard localStorage keys for moving between machines/browsers. */
-  exportWorkspace(): WorkspaceExportPayload {
+  /**
+   * Snapshot dashboard localStorage for moving between machines/browsers.
+   * Secrets are omitted and redacted unless includeSecrets is true.
+   */
+  exportWorkspace(options?: { includeSecrets?: boolean }): WorkspaceExportPayload {
+    const includeSecrets = Boolean(options?.includeSecrets);
     const data: Record<string, unknown> = {};
-    for (const key of Object.values(KEYS)) {
+    for (const key of EXPORT_PUBLIC_KEYS) {
       const raw = localStorage.getItem(key);
       if (raw != null) {
         try {
@@ -259,11 +291,25 @@ export const storageService = {
         }
       }
     }
+
+    // Never export ciphertext blobs or legacy plaintext keys from disk —
+    // use the in-memory vault (already decrypted) when includeSecrets is on.
+    delete data[SECRETS_STORAGE_KEY];
+    delete data[SECRETS_ENC_STORAGE_KEY];
+
+    let exportData = data;
+    if (includeSecrets) {
+      exportData = { ...data, [SECRETS_STORAGE_KEY]: loadSecretsVault() };
+    } else {
+      exportData = redactSecretsInExportData(data);
+    }
+
     return {
       version: WORKSPACE_EXPORT_VERSION,
       exportedAt: new Date().toISOString(),
       platformHint: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-      data,
+      includeSecrets,
+      data: exportData,
     };
   },
 
@@ -276,11 +322,27 @@ export const storageService = {
     const body = payload as Partial<WorkspaceExportPayload>;
     if (!body.data || typeof body.data !== 'object') return false;
 
-    const allowed = new Set(Object.values(KEYS));
+    const allowed = new Set(EXPORT_PUBLIC_KEYS);
     for (const [key, value] of Object.entries(body.data)) {
       if (!allowed.has(key)) continue;
       localStorage.setItem(key, JSON.stringify(value));
     }
+
+    // Secrets: apply into the live vault (Electron ciphertext or session), never leave
+    // a plaintext vault sitting in localStorage after import.
+    if (SECRETS_STORAGE_KEY in body.data) {
+      const raw = body.data[SECRETS_STORAGE_KEY];
+      if (raw && typeof raw === 'object') {
+        saveSecretsVault(raw as import('./secretsVault').SecretsVault);
+      }
+    }
+    localStorage.removeItem(SECRETS_STORAGE_KEY);
+    localStorage.removeItem(SECRETS_ENC_STORAGE_KEY);
+
     return true;
+  },
+
+  clearAllSecrets(): void {
+    clearSecretsVault();
   },
 };

@@ -100,6 +100,8 @@ import {
   FREE_MODELS_DIRECTORY_URL,
   type FreeAiSource,
 } from "../services/freeAiSources";
+import { secretsBackendLabel } from "../services/secretsVault";
+import { detectClientEnvironment } from "../services/clientEnvironment";
 
 type SettingsSubTab =
   | "general"
@@ -146,10 +148,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [workspaceTransferMessage, setWorkspaceTransferMessage] = useState<
     string | null
   >(null);
+  const [exportIncludeSecrets, setExportIncludeSecrets] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [showPaletteHelp, setShowPaletteHelp] = useState(false);
   const hostPlatform = detectHostPlatform();
   const homeDirectory = getHomeDirectory();
+  const clientEnv = detectClientEnvironment();
 
   // System Discovered Skills State
   const [systemSkills, setSystemSkills] = useState<SystemDiscoveredSkill[]>(
@@ -208,6 +212,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [freeConnectSource, setFreeConnectSource] =
     useState<FreeAiSource | null>(null);
   const [freeConnectKey, setFreeConnectKey] = useState("");
+  const [freeConnectHadKey, setFreeConnectHadKey] = useState(false);
   const [freeConnectModel, setFreeConnectModel] = useState("");
   const [freeConnectEndpoint, setFreeConnectEndpoint] = useState("");
 
@@ -268,7 +273,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleExportWorkspace = () => {
-    const payload = storageService.exportWorkspace();
+    const payload = storageService.exportWorkspace({
+      includeSecrets: exportIncludeSecrets,
+    });
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
     });
@@ -279,9 +286,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     a.click();
     URL.revokeObjectURL(url);
     setWorkspaceTransferMessage(
-      "Workspace exported — copy this file to your other machine and Import.",
+      exportIncludeSecrets
+        ? "Exported WITH secrets for Mac ↔ Windows ↔ phone transfer — treat this file like a password vault."
+        : "Exported without secrets (safe to share layout). Enable Include secrets to move API keys across devices.",
     );
-    setTimeout(() => setWorkspaceTransferMessage(null), 3500);
+    setTimeout(() => setWorkspaceTransferMessage(null), 4500);
   };
 
   const handleImportWorkspace = (file: File | null) => {
@@ -366,6 +375,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       apiKey: providerApiKey || undefined,
       isDefault: false,
       connected: true,
+      connectionMode: "demo",
+      liveVerified: false,
       tier:
         providerType.includes("Local") || providerType.includes("GPU")
           ? "local"
@@ -386,7 +397,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       (p) => p.freeSourceId === source.id,
     );
     setFreeConnectSource(source);
-    setFreeConnectKey(existing?.apiKey || "");
+    setFreeConnectHadKey(Boolean(existing?.apiKey));
+    setFreeConnectKey("");
     setFreeConnectModel(existing?.selectedModel || source.suggestedModel);
     setFreeConnectEndpoint(existing?.endpoint || source.endpoint);
   };
@@ -394,24 +406,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleConnectFreeSource = (e: React.FormEvent) => {
     e.preventDefault();
     if (!freeConnectSource) return;
-    if (freeConnectSource.requiresKey && !freeConnectKey.trim()) return;
+    if (
+      freeConnectSource.requiresKey &&
+      !freeConnectKey.trim() &&
+      !freeConnectHadKey
+    ) {
+      return;
+    }
 
     const existingIdx = (formData.aiProviders || []).findIndex(
       (p) => p.freeSourceId === freeConnectSource.id,
     );
+    const existing =
+      existingIdx >= 0 ? formData.aiProviders![existingIdx] : undefined;
+    const nextKey = freeConnectKey.trim()
+      ? freeConnectKey.trim()
+      : existing?.apiKey;
     const prov: AIProviderConfig = {
-      id:
-        existingIdx >= 0
-          ? formData.aiProviders![existingIdx].id
-          : `prov-free-${freeConnectSource.id}`,
+      id: existing?.id || `prov-free-${freeConnectSource.id}`,
       provider: freeConnectSource.name,
       endpoint: freeConnectEndpoint.trim() || freeConnectSource.endpoint,
       selectedModel: freeConnectModel.trim() || freeConnectSource.suggestedModel,
-      apiKey: freeConnectKey.trim() || undefined,
-      isDefault: existingIdx >= 0 ? formData.aiProviders![existingIdx].isDefault : false,
+      apiKey: nextKey,
+      isDefault: existing?.isDefault ?? false,
       connected: true,
       freeSourceId: freeConnectSource.id,
       tier: "free",
+      connectionMode: "demo",
+      liveVerified: false,
     };
 
     const list = [...(formData.aiProviders || [])];
@@ -433,6 +455,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       selectedModel: connector.type,
       isDefault: false,
       connected: true,
+      connectionMode: "demo",
+      liveVerified: false,
     };
 
     const updated = {
@@ -1811,13 +1835,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
-                  type="text"
+                  type="password"
                   value={formData.notionApiKey}
                   onChange={(e) =>
                     setFormData({ ...formData, notionApiKey: e.target.value })
                   }
                   placeholder="Notion Secret API Key (secret_...)"
                   className="w-full px-3 py-2 rounded-xl glass-input text-xs"
+                  autoComplete="off"
                 />
                 <input
                   type="text"
@@ -2396,11 +2421,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                               isConn
-                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                ? c.liveVerified
+                                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                  : "bg-amber-500/15 text-amber-200 border border-amber-500/30"
                                 : "bg-slate-800 text-slate-400 border border-slate-700"
                             }`}
                           >
-                            {isConn ? "Connected" : "Available"}
+                            {isConn
+                              ? c.liveVerified
+                                ? "Live"
+                                : "Local demo"
+                              : "Available"}
                           </span>
                         </div>
 
@@ -2462,11 +2493,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             <span
                               className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                                 isConn
-                                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                  ? c.liveVerified
+                                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                    : "bg-amber-500/15 text-amber-200 border border-amber-500/30"
                                   : "bg-slate-800 text-slate-400"
                               }`}
                             >
-                              {isConn ? "Connected" : "Available"}
+                              {isConn
+                                ? c.liveVerified
+                                  ? "Live"
+                                  : "Local demo"
+                                : "Available"}
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-400 truncate">
@@ -2583,9 +2620,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           {prov.selectedModel}
                         </strong>
                       </span>
-                      <span className="text-emerald-400 font-bold flex items-center gap-1">
+                      <span
+                        className={`font-bold flex items-center gap-1 ${
+                          prov.liveVerified ? "text-emerald-400" : "text-amber-200"
+                        }`}
+                      >
                         <Check className="w-3.5 h-3.5" />
-                        <span>Connected</span>
+                        <span>
+                          {prov.liveVerified ? "Live" : "Local demo"}
+                        </span>
                       </span>
                     </div>
                   </div>
@@ -2772,23 +2815,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="p-4 rounded-xl glass-card border border-slate-700/60 space-y-2">
               <span className="text-xs font-bold brand-text flex items-center gap-1.5">
                 <Monitor className="w-4 h-4" />
-                <span>Detected host</span>
+                <span>This device</span>
               </span>
               <p className="text-[11px] text-slate-300">
-                Platform:{" "}
                 <span className="font-semibold text-slate-100">
-                  {hostPlatform}
+                  {clientEnv.label}
                 </span>
                 {" · "}
-                Home for skill paths:{" "}
+                skill paths ({hostPlatform}):{" "}
                 <span className="font-mono brand-text">{homeDirectory}</span>
               </p>
+              <p className="text-[11px] text-slate-400 leading-snug">
+                {clientEnv.secretsHint}
+              </p>
+              <p className="text-[11px] text-slate-400 leading-snug">
+                {clientEnv.transferHint}
+              </p>
               <p className="text-[10px] text-slate-500">
-                Override with <span className="font-mono">VITE_HOME_DIR</span>{" "}
-                or <span className="font-mono">VITE_USERNAME</span> in a local{" "}
-                <span className="font-mono">.env</span> (not committed). Skill
-                paths are mock catalog URLs — they do not prove folders exist on
-                disk.
+                Mac/Windows daily:{" "}
+                <span className="font-mono">npm run electron:dev</span>
+                {" · "}
+                Phones on Wi‑Fi:{" "}
+                <span className="font-mono">npm run dev:lan</span> then open{" "}
+                <span className="font-mono">http://&lt;desktop-ip&gt;:5173</span>
+                .
               </p>
             </div>
 
@@ -2825,14 +2875,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div>
                 <span className="text-xs font-bold brand-text flex items-center gap-1.5">
                   <Download className="w-4 h-4" />
-                  <span>Move browser state between machines</span>
+                  <span>Move workspace across Mac, Windows &amp; phones</span>
                 </span>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Settings, mock data, and skills live in this browser&apos;s
-                  localStorage. Mac Chrome ≠ Windows Chrome — export a JSON file
-                  here, copy it over, then import on the other machine.
+                  Layout/settings → any device. API keys → check{" "}
+                  <strong className="text-slate-200">Include secrets</strong>{" "}
+                  (current vault: {secretsBackendLabel()}). Electron encryption
+                  does not copy between PCs — the export file is the bridge.
                 </p>
               </div>
+              <label className="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={exportIncludeSecrets}
+                  onChange={(e) => setExportIncludeSecrets(e.target.checked)}
+                  className="rounded border-slate-600"
+                />
+                <span>
+                  Include secrets (Mac ↔ Windows ↔ iPhone/Android){" "}
+                  <span className="text-amber-300/90">
+                    — off by default; delete the file after import
+                  </span>
+                </span>
+              </label>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -2906,9 +2971,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           >
             <div className="flex items-start justify-between gap-2 border-b border-slate-800 pb-3">
               <div className="min-w-0 space-y-1">
-                <h4 className="font-bold text-slate-100 text-sm">
-                  Connect {freeConnectSource.name}
-                </h4>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-bold text-slate-100 text-sm">
+                    Connect {freeConnectSource.name}
+                  </h4>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-200 border border-amber-500/30 text-[10px] font-bold">
+                    Local demo
+                  </span>
+                </div>
                 <p className="text-[11px] text-slate-400">
                   {freeConnectSource.freeLimits}
                   {" · "}
@@ -2973,14 +3043,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               {freeConnectSource.requiresKey && (
                 <input
                   type="password"
-                  required
+                  required={!freeConnectHadKey}
                   value={freeConnectKey}
                   onChange={(e) => setFreeConnectKey(e.target.value)}
-                  placeholder="API key / token"
+                  placeholder={
+                    freeConnectHadKey
+                      ? "•••••••• (leave blank to keep)"
+                      : "API key / token"
+                  }
                   className="w-full px-3 py-2 rounded-xl glass-input text-xs font-mono"
                   autoFocus
+                  autoComplete="off"
                 />
               )}
+              <p className="text-[10px] text-amber-200/90">
+                Saved as a local demo config — no live API ping yet. Keys stay in
+                a separate secrets store and are omitted from export by default.
+              </p>
             </div>
 
             <div className="flex justify-end gap-2 pt-1">
@@ -2995,7 +3074,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 type="submit"
                 className="px-4 py-1.5 rounded-xl brand-button font-bold text-xs"
               >
-                Connect free source
+                Save local demo
               </button>
             </div>
           </form>

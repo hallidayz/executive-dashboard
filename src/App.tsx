@@ -332,6 +332,7 @@ export function App() {
                 setSettingsSubTab('connectors');
                 setActiveTab('settings');
               }}
+              useMockData={settings.useMockData !== false}
             />
           )}
 
@@ -360,6 +361,7 @@ export function App() {
               onAddNotionAction={handleAddNotionAction}
               onAddKrispTranscript={handleAddKrispTranscript}
               onToggleNotionStatus={handleToggleNotionStatus}
+              useMockData={settings.useMockData !== false}
               onOpenConnectorsSettings={() => {
                 setSettingsSubTab('connectors');
                 setActiveTab('settings');

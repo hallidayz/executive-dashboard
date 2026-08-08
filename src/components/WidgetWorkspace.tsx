@@ -59,6 +59,7 @@ interface WidgetWorkspaceProps {
   onToggleAlertHandled: (id: string) => void;
   onAddKnowledgeEntry: (entry: KnowledgeEntry) => void;
   onOpenConnectorsSettings?: () => void;
+  useMockData?: boolean;
 }
 
 export const WidgetWorkspace: React.FC<WidgetWorkspaceProps> = ({
@@ -93,6 +94,7 @@ export const WidgetWorkspace: React.FC<WidgetWorkspaceProps> = ({
   onToggleAlertHandled,
   onAddKnowledgeEntry,
   onOpenConnectorsSettings,
+  useMockData = true,
 }) => {
   const enabledWidgets = [...widgets]
     .sort((a, b) => a.order - b.order)
@@ -205,6 +207,7 @@ export const WidgetWorkspace: React.FC<WidgetWorkspaceProps> = ({
                 onAddKrispTranscript={onAddKrispTranscript}
                 onToggleNotionStatus={onToggleNotionStatus}
                 onOpenConnectorsSettings={onOpenConnectorsSettings}
+                useMockData={useMockData}
               />
             );
           }

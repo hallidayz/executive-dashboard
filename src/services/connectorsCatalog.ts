@@ -38,10 +38,10 @@ const RAW_CATALOG: CatalogSeed[] = [
     connectedUser: 'alex.halliday@enterprise.com',
     lastSynced: 'Just now',
     eli5Instructions: [
-      'ELI5: Logging in with your work email acts as a keycard for Outlook.',
-      'Step 1: Click "Sign In with Microsoft IDP".',
-      'Step 2: Enter your work username and password in the secure popup.',
-      'Step 3: Click "Approve Access" and we auto-fill all tokens for you!',
+      'ELI5: Outlook will power calendar/email surfaces once live Microsoft Graph is wired.',
+      'Step 1: Click Demo connect to enable this tool locally (no password collected).',
+      'Step 2: Optionally paste Azure Client/Tenant IDs for future live OAuth.',
+      'Step 3: Live token exchange is not active yet — status stays Local demo.',
     ],
     fieldsRequired: [
       { key: 'clientId', label: 'Azure Application (Client) ID', placeholder: 'e.g. 00000000-0000-0000-0000-000000000000' },
